@@ -7,6 +7,7 @@ import java.lang.management.ManagementFactory
 import java.net.URL
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 
 private val logger = KotlinLogging.logger { }
@@ -29,7 +30,6 @@ class Restarter private constructor(
 
     init {
         val thread = Thread.currentThread()
-        SilentExitExceptionHandler.setup(thread)
 
         appClassLoader = thread.contextClassLoader
         classpathUrls = ManagementFactory.getRuntimeMXBean().classPath
@@ -54,8 +54,7 @@ class Restarter private constructor(
         val throwable = leakSafeExecutor.callAndWait { start() }
         if (throwable != null)
             throw throwable
-        SilentExitExceptionHandler.exitCurrentThread()
-        error("Should have thrown")
+        ImmediateRestartException.throwAndHandle()
     }
 
     /**
@@ -86,10 +85,20 @@ class Restarter private constructor(
      */
     private fun start(): Throwable? {
         val restartClassLoader = RestartClassLoader(appClassLoader, classpathUrls)
-        val launcher = RestartLauncher(restartClassLoader, mainClassName, args, uncaughtExceptionHandler)
-        launcher.start()
-        launcher.join()
-        return launcher.error
+        var error: Throwable? = null
+        val launchThreads = thread(name = "restartedMain", isDaemon = false, contextClassLoader = restartClassLoader) {
+            try {
+                val mainClass = Class.forName(mainClassName, false, restartClassLoader)
+                val mainMethod = mainClass.getDeclaredMethod("main", Array<String>::class.java)
+                mainMethod.isAccessible = true
+                mainMethod.invoke(null, args)
+            } catch (ex: Throwable) {
+                error = ex
+            }
+        }
+        launchThreads.join()
+
+        return error
     }
 
     companion object {
