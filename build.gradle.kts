@@ -11,6 +11,9 @@ repositories {
 }
 
 dependencies {
+    implementation("org.springframework.boot:spring-boot-starter:3.4.2")
+    implementation("org.springframework.boot:spring-boot-devtools:3.4.2")
+
     testImplementation(kotlin("test"))
 }
 
