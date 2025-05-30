@@ -13,6 +13,8 @@ repositories {
 }
 
 dependencies {
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
+
     implementation("org.springframework.boot:spring-boot-starter:3.4.2")
     implementation("org.springframework.boot:spring-boot-devtools:3.4.2")
 
@@ -26,6 +28,8 @@ tasks.test {
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+
+    withSourcesJar()
 }
 
 kotlin {
