@@ -1,9 +1,9 @@
 package dev.freya02.botcommands.internal.restart
 
-import dev.freya02.botcommands.internal.restart.sources.SourceDirectories
 import dev.freya02.botcommands.internal.restart.utils.AppClasspath
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.net.URL
+import java.net.URLClassLoader
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
@@ -12,7 +12,6 @@ import kotlin.concurrent.withLock
 private val logger = KotlinLogging.logger { }
 
 class Restarter private constructor(
-    private val sourceDirectories: SourceDirectories,
     private val args: List<String>,
 ) {
 
@@ -79,7 +78,16 @@ class Restarter private constructor(
      * Starts a new instance of the main class, or returns a [Throwable] if it failed.
      */
     private fun start(): Throwable? {
-        val restartClassLoader = RestartClassLoader(appClasspathUrls, appClassLoader, sourceDirectories)
+        // We use a regular URLClassLoader instead of [[RestartClassLoader]],
+        // as classpath changes will trigger a restart and thus recreate a new ClassLoader,
+        // meaning live updating the classes is pointless.
+        // In contrast, Spring needs their RestartClassLoader because it can override classes remotely,
+        // but we don't have such a use case.
+        // However, not using [[RestartClassLoader]], which uses snapshots, has an issue,
+        // trying to load deleted classes (most likely on shutdown) will fail,
+        // Spring also has that issue, but it will only happen on classes out of its component scan,
+        // BC just needs to make sure to at least load the classes on its path too.
+        val restartClassLoader = URLClassLoader(appClasspathUrls.toTypedArray(), appClassLoader)
         var error: Throwable? = null
         val launchThreads = thread(name = "restartedMain", isDaemon = false, contextClassLoader = restartClassLoader) {
             try {
@@ -106,7 +114,7 @@ class Restarter private constructor(
             var newInstance: Restarter? = null
             instanceLock.withLock {
                 if (::instance.isInitialized.not()) {
-                    newInstance = Restarter(args, sourceDirectories)
+                    newInstance = Restarter(args)
                     instance = newInstance
                 }
             }
