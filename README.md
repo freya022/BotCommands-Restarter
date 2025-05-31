@@ -1,14 +1,14 @@
 [bc-maven-central-shield]: https://img.shields.io/maven-central/v/io.github.freya022/BotCommands?versionPrefix=3
 [bc-maven-central-link]: https://mvnrepository.com/artifact/io.github.freya022/BotCommands/latest
 [bc-jitpack-shield]: https://img.shields.io/badge/Snapshots-JitPack-blue
-[bc-jitpack-link]: https://jitpack.io/#freya022/BotCommands
+[bc-jitpack-link]: https://jitpack.io/#freya022/BotCommands-Restarter
 [bc-releases]: #installation
 [discord-shield]: https://discord.com/api/guilds/848502702731165738/embed.png?style=shield
 [discord-invite]: https://discord.gg/frpCcQfvTz
 
 <img align="right" src="assets/logo.svg" height="150" alt="BotCommands logo">
 
-[![BotCommands version][bc-maven-central-shield]][bc-releases]
+[//]: # ([![BotCommands version][bc-maven-central-shield]][bc-releases])
 [![Snapshots][bc-jitpack-shield]][bc-jitpack-link]
 [![Discord invite][discord-shield]][discord-invite]
 
