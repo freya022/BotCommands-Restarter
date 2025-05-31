@@ -76,5 +76,5 @@ internal fun SourceDirectory(directory: Path, listener: SourceDirectoryListener)
 }
 
 private fun Path.takeSnapshot(): SourceFiles = walkFiles().associate { (it, attrs) ->
-    it.relativeTo(this).pathString to SourceFile(attrs.lastModifiedTime().toInstant(), it.readBytes())
+    it.relativeTo(this).pathString to SourceFile(attrs.lastModifiedTime().toInstant())
 }.let(::SourceFiles)

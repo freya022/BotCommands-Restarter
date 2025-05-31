@@ -6,7 +6,10 @@ internal sealed interface ISourceFile
 
 internal class SourceFile(
     val lastModified: Instant,
-    val bytes: ByteArray,
-) : ISourceFile
+) : ISourceFile {
+
+    val bytes: ByteArray
+        get() = throw UnsupportedOperationException("Class data is no longer retained as RestartClassLoader is not used yet")
+}
 
 internal object DeletedSourceFile : ISourceFile
