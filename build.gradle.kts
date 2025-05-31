@@ -10,11 +10,12 @@ version = "3.0.0-beta.2_DEV"
 
 repositories {
     mavenCentral()
+    maven("https://jitpack.io")
     mavenLocal()
 }
 
 dependencies {
-    implementation("io.github.freya022:BotCommands:3.0.0-beta.2_DEV")
+    implementation("io.github.freya022:BotCommands:80c4a99412")
 
     testImplementation(kotlin("test"))
 }
