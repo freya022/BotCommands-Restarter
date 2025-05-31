@@ -89,7 +89,7 @@ class Restarter private constructor(
         // BC just needs to make sure to at least load the classes on its path too.
         val restartClassLoader = URLClassLoader(appClasspathUrls.toTypedArray(), appClassLoader)
         var error: Throwable? = null
-        val launchThreads = thread(name = "restartedMain", isDaemon = false, contextClassLoader = restartClassLoader) {
+        val launchThreads = thread(name = RESTARTED_THREAD_NAME, isDaemon = false, contextClassLoader = restartClassLoader) {
             try {
                 val mainClass = Class.forName(mainClassName, false, restartClassLoader)
                 val mainMethod = mainClass.getDeclaredMethod("main", Array<String>::class.java)
@@ -105,6 +105,8 @@ class Restarter private constructor(
     }
 
     companion object {
+
+        const val RESTARTED_THREAD_NAME = "restartedMain"
 
         private val instanceLock: Lock = ReentrantLock()
         lateinit var instance: Restarter
