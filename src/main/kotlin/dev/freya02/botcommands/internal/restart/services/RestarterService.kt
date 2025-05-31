@@ -7,7 +7,7 @@ import dev.freya02.botcommands.internal.restart.utils.AppClasspath
 import dev.freya02.botcommands.internal.restart.watcher.ClasspathListener
 import io.github.freya022.botcommands.api.core.BContext
 import io.github.freya022.botcommands.api.core.annotations.BEventListener
-import io.github.freya022.botcommands.api.core.config.BHotReloadConfig
+import io.github.freya022.botcommands.api.core.config.BRestartConfig
 import io.github.freya022.botcommands.api.core.events.BShutdownEvent
 import io.github.freya022.botcommands.api.core.service.annotations.BService
 import io.github.freya022.botcommands.api.core.service.annotations.RequiresDefaultInjection
@@ -28,7 +28,7 @@ internal class RestarterService internal constructor (
     }
 
     @BService
-    internal fun sourceDirectories(config: BHotReloadConfig): SourceDirectories {
+    internal fun sourceDirectories(config: BRestartConfig): SourceDirectories {
         return SourceDirectories(AppClasspath.getPaths(), ClasspathListener(config.restartDelay))
     }
 
