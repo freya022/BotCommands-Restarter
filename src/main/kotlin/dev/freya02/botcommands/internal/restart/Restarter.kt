@@ -1,9 +1,8 @@
 package dev.freya02.botcommands.internal.restart
 
+import dev.freya02.botcommands.internal.restart.sources.SourceDirectories
+import dev.freya02.botcommands.internal.restart.utils.AppClasspath
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.springframework.boot.devtools.restart.classloader.RestartClassLoader
-import java.io.File
-import java.lang.management.ManagementFactory
 import java.net.URL
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
@@ -14,10 +13,11 @@ private val logger = KotlinLogging.logger { }
 
 class Restarter private constructor(
     private val args: Array<String>,
+    private val sourceDirectories: SourceDirectories,
 ) {
 
     private val appClassLoader: ClassLoader
-    private val classpathUrls: Array<URL>
+    val appClasspathUrls: List<URL>
 
     private val mainClassName: String
 
@@ -32,12 +32,7 @@ class Restarter private constructor(
         val thread = Thread.currentThread()
 
         appClassLoader = thread.contextClassLoader
-        classpathUrls = ManagementFactory.getRuntimeMXBean().classPath
-            .split(File.pathSeparator)
-            .map(::File)
-            .filter { it.isDirectory }
-            .map { it.toURI().toURL() }
-            .toTypedArray()
+        appClasspathUrls = AppClasspath.getPaths().map { it.toUri().toURL() }
 
         mainClassName = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
             .walk { stream -> stream.filter { it.methodName == "main" }.toList().last() }
@@ -84,7 +79,7 @@ class Restarter private constructor(
      * Starts a new instance of the main class, or returns a [Throwable] if it failed.
      */
     private fun start(): Throwable? {
-        val restartClassLoader = RestartClassLoader(appClassLoader, classpathUrls)
+        val restartClassLoader = RestartClassLoader(appClasspathUrls, appClassLoader, sourceDirectories)
         var error: Throwable? = null
         val launchThreads = thread(name = "restartedMain", isDaemon = false, contextClassLoader = restartClassLoader) {
             try {
@@ -107,11 +102,11 @@ class Restarter private constructor(
         lateinit var instance: Restarter
             private set
 
-        fun initialize(args: Array<String>) {
+        fun initialize(args: Array<String>, sourceDirectories: SourceDirectories) {
             var newInstance: Restarter? = null
             instanceLock.withLock {
                 if (::instance.isInitialized.not()) {
-                    newInstance = Restarter(args)
+                    newInstance = Restarter(args, sourceDirectories)
                     instance = newInstance
                 }
             }
