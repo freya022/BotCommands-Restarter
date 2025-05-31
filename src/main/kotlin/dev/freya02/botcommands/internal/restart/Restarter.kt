@@ -12,8 +12,8 @@ import kotlin.concurrent.withLock
 private val logger = KotlinLogging.logger { }
 
 class Restarter private constructor(
-    private val args: Array<String>,
     private val sourceDirectories: SourceDirectories,
+    private val args: List<String>,
 ) {
 
     private val appClassLoader: ClassLoader
@@ -86,7 +86,7 @@ class Restarter private constructor(
                 val mainClass = Class.forName(mainClassName, false, restartClassLoader)
                 val mainMethod = mainClass.getDeclaredMethod("main", Array<String>::class.java)
                 mainMethod.isAccessible = true
-                mainMethod.invoke(null, args)
+                mainMethod.invoke(null, args.toTypedArray())
             } catch (ex: Throwable) {
                 error = ex
             }
@@ -102,7 +102,7 @@ class Restarter private constructor(
         lateinit var instance: Restarter
             private set
 
-        fun initialize(args: Array<String>, sourceDirectories: SourceDirectories) {
+        fun initialize(args: List<String>) {
             var newInstance: Restarter? = null
             instanceLock.withLock {
                 if (::instance.isInitialized.not()) {
