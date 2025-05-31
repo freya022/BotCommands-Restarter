@@ -10,10 +10,11 @@ version = "3.0.0-beta.2_DEV"
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
+    implementation("io.github.freya022:BotCommands:3.0.0-beta.2_DEV")
 
     testImplementation(kotlin("test"))
 }

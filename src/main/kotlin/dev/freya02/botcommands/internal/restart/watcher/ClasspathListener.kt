@@ -10,7 +10,7 @@ import kotlin.time.Duration
 
 private val logger = KotlinLogging.logger { }
 
-class ClasspathListener(
+internal class ClasspathListener internal constructor(
     private val delay: Duration
 ) : SourceDirectoriesListener {
 
@@ -34,5 +34,9 @@ class ClasspathListener(
             }
             scheduler.shutdown()
         }, delay.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    }
+
+    override fun onCancel() {
+        scheduler.shutdownNow()
     }
 }

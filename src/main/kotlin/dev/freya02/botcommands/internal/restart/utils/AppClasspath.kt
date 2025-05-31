@@ -6,7 +6,7 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.isDirectory
 
-object AppClasspath {
+internal object AppClasspath {
 
     fun getPaths(): List<Path> {
         return ManagementFactory.getRuntimeMXBean().classPath

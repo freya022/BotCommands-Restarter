@@ -17,18 +17,24 @@ internal class SourceDirectory internal constructor(
     private val listener: SourceDirectoryListener,
 ) {
 
+    private val thread: Thread
+
     init {
         require(directory.isDirectory())
 
-        logger.debug { "Listening to ${directory.absolutePathString()}" }
+        logger.trace { "Listening to ${directory.absolutePathString()}" }
 
         val watchService = directory.fileSystem.newWatchService()
         directory.walkDirectories { path, attributes ->
             path.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE)
         }
 
-        thread(name = "Classpath watcher of '${directory.fileName}'", isDaemon = true) {
-            watchService.take() // Wait for a change
+        thread = thread(name = "Classpath watcher of '${directory.fileName}'", isDaemon = true) {
+            try {
+                watchService.take() // Wait for a change
+            } catch (_: InterruptedException) {
+                return@thread logger.trace { "Interrupted watching ${directory.absolutePathString()}" }
+            }
             watchService.close()
 
             listener.onChange(sourcesFilesFactory = {
@@ -68,6 +74,10 @@ internal class SourceDirectory internal constructor(
                 error("Received a file system event but no changes were detected")
             })
         }
+    }
+
+    internal fun close() {
+        thread.interrupt()
     }
 }
 

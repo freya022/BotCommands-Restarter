@@ -2,7 +2,7 @@ package dev.freya02.botcommands.internal.restart.sources
 
 import java.nio.file.Path
 
-class SourceDirectories internal constructor() {
+internal class SourceDirectories internal constructor() {
     private val directories: MutableMap<Path, SourceDirectory> = hashMapOf()
 
     internal fun getFile(path: String): ISourceFile? {
@@ -18,9 +18,13 @@ class SourceDirectories internal constructor() {
 
         directories[key] = directory
     }
+
+    internal fun close() {
+        directories.values.forEach { it.close() }
+    }
 }
 
-fun SourceDirectories(directories: List<Path>, listener: SourceDirectoriesListener): SourceDirectories {
+internal fun SourceDirectories(directories: List<Path>, listener: SourceDirectoriesListener): SourceDirectories {
     val sourceDirectories = SourceDirectories()
 
     fun onSourceDirectoryUpdate(directory: Path, sourceFilesFactory: () -> SourceFiles) {
