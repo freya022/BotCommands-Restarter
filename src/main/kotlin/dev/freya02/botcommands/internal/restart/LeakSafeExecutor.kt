@@ -1,6 +1,5 @@
 package dev.freya02.botcommands.internal.restart
 
-import org.springframework.boot.devtools.restart.classloader.RestartClassLoader
 import java.util.concurrent.BlockingDeque
 import java.util.concurrent.LinkedBlockingDeque
 import kotlin.system.exitProcess
@@ -16,8 +15,6 @@ internal class LeakSafeExecutor internal constructor() {
     init {
         leakSafeThreads += LeakSafeThread()
     }
-
-    fun call(callable: () -> Unit): Unit = getLeakSafeThread().call(callable)
 
     fun <V> callAndWait(callable: () -> V): V = getLeakSafeThread().callAndWait(callable)
 
@@ -36,11 +33,6 @@ internal class LeakSafeExecutor internal constructor() {
 
         init {
             isDaemon = false
-        }
-
-        fun call(callable: () -> Unit) {
-            this.callable = callable
-            start()
         }
 
         @Suppress("UNCHECKED_CAST")
