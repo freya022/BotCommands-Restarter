@@ -1,0 +1,6 @@
+[versions]
+kotlin = "2.1.20" # Also change in buildSrc
+botcommands = "80c4a99412"
+
+[libraries]
+botcommands = { module = "io.github.freya022:BotCommands", version.ref = "botcommands" }
