@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("BotCommands-Restarter-conventions")
-    `java-library`
     `maven-publish`
 }
 
@@ -46,14 +45,6 @@ tasks.withType<Test> {
 
     jvmArgs("-javaagent:${jar.archiveFile.get().asFile.absolutePath}")
 }
-
-//val copyForAgent by tasks.registering(Copy::class) {
-//    from(jar)
-//    into(layout.buildDirectory.dir("libs"))
-//    rename { "BotCommands-Restarter-JDA-Cache.jar" }
-//}
-//
-//jar.finalizedBy(copyForAgent)
 
 publishing {
     publications {
