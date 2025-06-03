@@ -9,5 +9,5 @@ repositories {
 
 dependencies {
     // Change in version catalog too
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0-RC")
 }
