@@ -29,8 +29,12 @@ public class Test extends JDAService {
     }
 
     void something(BReadyEvent bReadyEvent, IEventManager iEventManager) {
-        JDABuilderSession.withBuilderSession(() -> {
+        var a = "a";
+        if (a == null) {
+            System.out.println("null");
+            return;
+        }
 
-        });
+        System.out.println("not null");
     }
 }

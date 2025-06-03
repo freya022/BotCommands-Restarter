@@ -23,19 +23,64 @@ class JDAServiceTransformerTest {
     @Test
     fun `Event listener is instrumented`() {
         mockkObject(JDABuilderSession)
-        every { JDABuilderSession.withBuilderSession(any()) } answers { callOriginal() } // Will call onReadyEvent
+        every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() } // Will call createJDA
 
         val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
         val bot = mockk<Bot> {
             every { createJDA(any(), any()) } just runs
-            every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call createJDA
+            every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession
         }
 
-        val readyEvent = mockk<BReadyEvent>()
+        val readyEvent = mockk<BReadyEvent> {
+            every { context.config.restartConfig.cacheKey } returns "Test"
+        }
         val eventManager = mockk<IEventManager>()
 
         onReadyEvent.invoke(bot, readyEvent, eventManager)
 
         verify(exactly = 1) { bot.createJDA(readyEvent, eventManager) }
+    }
+
+    @Test
+    fun `Cache key enables builder sessions`() {
+        mockkObject(JDABuilderSession)
+        every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() }
+
+        val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
+        val bot = mockk<Bot> {
+            every { createJDA(any(), any()) } just runs
+            every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession
+        }
+
+        val readyEvent = mockk<BReadyEvent> {
+            every { context.config.restartConfig.cacheKey } returns "Test"
+        }
+        val eventManager = mockk<IEventManager>()
+
+        onReadyEvent.invoke(bot, readyEvent, eventManager)
+
+        verify(exactly = 1) { JDABuilderSession.withBuilderSession(any(), any()) }
+    }
+
+    @Test
+    fun `Null cache key disables builder sessions`() {
+        mockkObject(JDABuilderSession)
+        every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() }
+        every { JDABuilderSession.getCacheKey(any()) } answers { callOriginal() }
+
+        val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
+        val bot = mockk<Bot> {
+            every { createJDA(any(), any()) } just runs
+            every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession
+        }
+
+        val readyEvent = mockk<BReadyEvent> {
+            every { context.config.restartConfig.cacheKey } returns null
+        }
+        val eventManager = mockk<IEventManager>()
+
+        onReadyEvent.invoke(bot, readyEvent, eventManager)
+
+        verify(exactly = 0) { JDABuilderSession.withBuilderSession(any(), any()) }
     }
 }

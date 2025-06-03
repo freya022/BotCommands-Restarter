@@ -1,10 +1,12 @@
 package dev.freya02.botcommands.restart.jda.cache
 
+import io.github.freya022.botcommands.api.core.BContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.ClassFile
 import java.lang.classfile.ClassFile.*
 import java.lang.classfile.CodeModel
 import java.lang.classfile.MethodModel
+import java.lang.classfile.TypeKind
 import java.lang.constant.*
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
@@ -45,9 +47,35 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
 
                 methodBuilder.withCode { codeBuilder ->
                     val thisSlot = codeBuilder.receiverSlot()
+
                     val readyEventSlot = codeBuilder.parameterSlot(0)
                     val eventManagerSlot = codeBuilder.parameterSlot(1)
 
+                    val contextSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+                    val sessionKeySlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+                    val sessionRunnableSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+
+                    // var context = event.getContext()
+                    // We could inline this to avoid a successive store/load,
+                    // but I think using variables is probably a better practice, let's leave the optimization to the VM
+                    codeBuilder.aload(readyEventSlot)
+                    codeBuilder.invokevirtual(BReadyEventClassDesc, "getContext", MethodTypeDesc.of(classDesc<BContext>()))
+                    codeBuilder.astore(contextSlot)
+
+                    // var key = JDABuilderSession.getCacheKey(context)
+                    codeBuilder.aload(contextSlot)
+                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getCacheKey", MethodTypeDesc.of(CD_String, classDesc<BContext>()))
+                    codeBuilder.astore(sessionKeySlot)
+
+                    // THE KEY IS NULLABLE
+                    // If it is, then don't make a session
+                    val nullKeyLabel = codeBuilder.newLabel()
+
+                    // if (key == null) -> nullKeyLabel
+                    codeBuilder.aload(sessionKeySlot)
+                    codeBuilder.ifnull(nullKeyLabel)
+
+                    // Runnable sessionRunnable = this::[lambdaName]
                     codeBuilder.aload(thisSlot)
                     codeBuilder.aload(readyEventSlot)
                     codeBuilder.aload(eventManagerSlot)
@@ -84,8 +112,18 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
                         // This is usually the same as "interfaceMethodType"
                         MethodTypeDesc.of(CD_void),
                     ))
+                    codeBuilder.astore(sessionRunnableSlot)
 
-                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "withBuilderSession", MethodTypeDesc.of(CD_void, classDesc<Runnable>()))
+                    // JDABuilderSession.withBuilderSession(key, this::[lambdaName])
+                    codeBuilder.aload(sessionKeySlot)
+                    codeBuilder.aload(sessionRunnableSlot)
+                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "withBuilderSession", MethodTypeDesc.of(CD_void, CD_String, classDesc<Runnable>()))
+
+                    // Required
+                    codeBuilder.return_()
+
+                    // nullKeyLabel code
+                    codeBuilder.labelBinding(nullKeyLabel)
                     codeBuilder.return_()
                 }
             }

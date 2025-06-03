@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.2.0-RC" # Also change in buildSrc
-botcommands = "80c4a99412"
+botcommands = "3.0.0-beta.2_DEV"
 jda = "5.5.1"
 mockk = "1.13.16"
 bytebuddy = "1.17.5"
