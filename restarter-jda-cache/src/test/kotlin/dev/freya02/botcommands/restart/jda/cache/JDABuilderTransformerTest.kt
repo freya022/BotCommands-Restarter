@@ -62,6 +62,22 @@ class JDABuilderTransformerTest {
         verify(exactly = 1) { builderSession.setStatus(OnlineStatus.DO_NOT_DISTURB) }
     }
 
+    @Test
+    fun `Build method is instrumented`() {
+        val builderSession = mockk<JDABuilderSession> {
+            every { onInit(any(), any()) } just runs
+            every { markIncompatible() } just runs
+            every { onBuild(any()) } returns mockk()
+        }
+
+        mockkObject(JDABuilderSession)
+        every { JDABuilderSession.currentSession() } returns builderSession
+
+        JDABuilder.createDefault("MY_TOKEN").build()
+
+        verify(exactly = 1) { builderSession.onBuild(any()) }
+    }
+
     /**
      * Creates a basic JDABuilder,
      * call this on the first line to not record any mocking data before doing the actual test.

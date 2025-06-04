@@ -3,8 +3,8 @@ package dev.freya02.botcommands.restart.jda.cache
 import io.github.freya022.botcommands.api.core.BContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.OnlineStatus
+import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger { }
 
@@ -32,15 +32,28 @@ class JDABuilderSession(
         builderValues[ValueType.STATUS] = status
     }
 
-    fun onBuild(builder: JDABuilder): JDA {
-        // TODO use user-provided constant-per-instance cache key
-
-        // If no cached instance is present, save if compatible
-        // If there is a cached instance, and it is compatible with the current parameters, return existing instance
+    fun onBuild(buildFunction: Supplier<JDA>): JDA {
+        val jda: JDA
+        if (isIncompatible) {
+            logger.debug { "Configured JDABuilder is incompatible, building a new JDA instance with key '$key'" }
+            jda = buildFunction.get()
+            JDACache[key] = jda
+        } else if (key in JDACache) {
+            logger.debug { "Reusing JDA instance with key '$key'" }
+            jda = JDACache[key]!!
+            // TODO need to set the event manager to the new instance
+            //  Pass the new IEventManager to session constructor
+            //  then wrap and set it here
+        } else {
+            logger.debug { "Saving a new JDA instance with key '$key'" }
+            jda = buildFunction.get()
+            JDACache[key] = jda
+            // TODO wrap event manager and set it
+        }
 
         wasBuilt = true
 
-        TODO()
+        return jda
     }
 
     enum class ValueType {
