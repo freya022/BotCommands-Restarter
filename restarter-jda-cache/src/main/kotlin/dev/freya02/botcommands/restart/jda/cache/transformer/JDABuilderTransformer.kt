@@ -1,5 +1,6 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
@@ -11,8 +12,9 @@ import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger { }
 
-private val JDADesc = ClassDesc.of("net.dv8tion.jda.api.JDA")
-private val JDABuilderDesc = ClassDesc.of("net.dv8tion.jda.api.JDABuilder")
+// Avoid importing BC and JDA classes
+private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
+private val CD_JDABuilder = ClassDesc.of("net.dv8tion.jda.api.JDABuilder")
 
 internal object JDABuilderTransformer : AbstractClassFileTransformer("net/dv8tion/jda/api/JDABuilder") {
 
@@ -85,7 +87,7 @@ private class BuildTransform : ClassTransform {
         val newBuildMethodName = "doBuild"
         classBuilder.withMethod(
             newBuildMethodName,
-            MethodTypeDesc.of(JDADesc),
+            MethodTypeDesc.of(CD_JDA),
             ACC_PRIVATE or ACC_SYNTHETIC or ACC_FINAL
         ) { methodBuilder ->
             val codeModel = methodModel.code().get()
@@ -122,7 +124,7 @@ private class BuildTransform : ClassTransform {
                     // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
                     // the return type is the implemented interface,
                     // while the parameters are the captured variables (incl. receiver)
-                    MethodTypeDesc.of(classDesc<Supplier<*>>(), JDABuilderDesc),
+                    MethodTypeDesc.of(classDesc<Supplier<*>>(), CD_JDABuilder),
                     // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
                     // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
                     // which is the signature of the implemented method, in this case, Object get()
@@ -132,9 +134,9 @@ private class BuildTransform : ClassTransform {
                     // with the captured variables and parameters
                     MethodHandleDesc.ofMethod(
                         DirectMethodHandleDesc.Kind.VIRTUAL,
-                        JDABuilderDesc,
+                        CD_JDABuilder,
                         newBuildMethodName,
-                        MethodTypeDesc.of(JDADesc)
+                        MethodTypeDesc.of(CD_JDA)
                     ),
                     // This is the 6th argument of LambdaMetafactory#metafactory, "dynamicMethodType",
                     // this is "the signature and return type to be enforced dynamically at invocation type"
@@ -150,7 +152,7 @@ private class BuildTransform : ClassTransform {
                 // var jda = session.onBuild(this::doBuild);
                 codeBuilder.aload(builderSessionSlot)
                 codeBuilder.aload(doBuildSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onBuild", MethodTypeDesc.of(JDADesc, classDesc<Supplier<*>>()))
+                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onBuild", MethodTypeDesc.of(CD_JDA, classDesc<Supplier<*>>()))
                 // Again, prefer using a variable for clarity
                 codeBuilder.astore(jdaSlot)
 

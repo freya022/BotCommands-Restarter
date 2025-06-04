@@ -1,5 +1,8 @@
 package dev.freya02.botcommands.restart.jda.cache
 
+import dev.freya02.botcommands.restart.jda.cache.transformer.JDABuilderTransformer
+import dev.freya02.botcommands.restart.jda.cache.transformer.JDAImplTransformer
+import dev.freya02.botcommands.restart.jda.cache.transformer.JDAServiceTransformer
 import java.lang.instrument.Instrumentation
 
 object Agent {

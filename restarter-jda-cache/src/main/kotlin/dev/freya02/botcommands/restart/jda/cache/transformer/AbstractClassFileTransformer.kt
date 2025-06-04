@@ -1,9 +1,11 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
 import java.lang.instrument.ClassFileTransformer
 import java.security.ProtectionDomain
 
-internal abstract class AbstractClassFileTransformer protected constructor(private val target: String) : ClassFileTransformer {
+internal abstract class AbstractClassFileTransformer protected constructor(
+    private val target: String
+) : ClassFileTransformer {
 
     override fun transform(
         loader: ClassLoader?,

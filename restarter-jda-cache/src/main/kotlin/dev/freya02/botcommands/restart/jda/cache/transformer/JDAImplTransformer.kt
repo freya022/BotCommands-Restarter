@@ -1,5 +1,6 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
@@ -10,7 +11,8 @@ import java.lang.invoke.*
 
 private val logger = KotlinLogging.logger { }
 
-private val JDAImplDesc = ClassDesc.of("net.dv8tion.jda.internal.JDAImpl")
+// Avoid importing BC and JDA classes
+private val CD_JDAImpl = ClassDesc.of("net.dv8tion.jda.internal.JDAImpl")
 
 internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/jda/internal/JDAImpl") {
 
@@ -77,7 +79,7 @@ private class ShutdownTransform : ClassTransform {
                     // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
                     // the return type is the implemented interface,
                     // while the parameters are the captured variables (incl. receiver)
-                    MethodTypeDesc.of(classDesc<Runnable>(), JDAImplDesc),
+                    MethodTypeDesc.of(classDesc<Runnable>(), CD_JDAImpl),
                     // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
                     // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
                     // which is the signature of the implemented method, in this case, void run()
@@ -87,7 +89,7 @@ private class ShutdownTransform : ClassTransform {
                     // with the captured variables and parameters
                     MethodHandleDesc.ofMethod(
                         DirectMethodHandleDesc.Kind.VIRTUAL,
-                        JDAImplDesc,
+                        CD_JDAImpl,
                         newShutdownMethodName,
                         MethodTypeDesc.of(CD_void)
                     ),

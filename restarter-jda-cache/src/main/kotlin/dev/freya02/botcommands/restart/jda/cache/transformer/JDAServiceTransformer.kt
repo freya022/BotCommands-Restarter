@@ -1,6 +1,6 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
-import io.github.freya022.botcommands.api.core.BContext
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.ClassFile
 import java.lang.classfile.ClassFile.*
@@ -13,6 +13,12 @@ import java.lang.constant.ConstantDescs.CD_void
 import java.lang.invoke.*
 
 private val logger = KotlinLogging.logger { }
+
+// Avoid importing BC and JDA classes
+private val CD_BContext = ClassDesc.of("io.github.freya022.botcommands.api.core.BContext")
+private val CD_JDAService = ClassDesc.of("io.github.freya022.botcommands.api.core.JDAService")
+private val CD_BReadyEvent  = ClassDesc.of("io.github.freya022.botcommands.api.core.events.BReadyEvent")
+private val CD_IEventManager = ClassDesc.of("net.dv8tion.jda.api.hooks.IEventManager")
 
 internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/freya022/botcommands/api/core/JDAService") {
 
@@ -59,12 +65,12 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
                     // We could inline this to avoid a successive store/load,
                     // but I think using variables is probably a better practice, let's leave the optimization to the VM
                     codeBuilder.aload(readyEventSlot)
-                    codeBuilder.invokevirtual(BReadyEventClassDesc, "getContext", MethodTypeDesc.of(classDesc<BContext>()))
+                    codeBuilder.invokevirtual(CD_BReadyEvent, "getContext", MethodTypeDesc.of(CD_BContext))
                     codeBuilder.astore(contextSlot)
 
                     // var key = JDABuilderSession.getCacheKey(context)
                     codeBuilder.aload(contextSlot)
-                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getCacheKey", MethodTypeDesc.of(CD_String, classDesc<BContext>()))
+                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getCacheKey", MethodTypeDesc.of(CD_String, CD_BContext))
                     codeBuilder.astore(sessionKeySlot)
 
                     // THE KEY IS NULLABLE
@@ -93,7 +99,7 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
                         // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
                         // the return type is the implemented interface,
                         // while the parameters are the captured variables
-                        MethodTypeDesc.of(classDesc<Runnable>(), JDAServiceClassDesc, BReadyEventClassDesc, IEventManagerClassDesc),
+                        MethodTypeDesc.of(classDesc<Runnable>(), CD_JDAService, CD_BReadyEvent, CD_IEventManager),
                         // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
                         // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
                         // which is the signature of the implemented method, in this case, void Runnable.run()
@@ -103,9 +109,9 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
                         // with the captured variables and parameters
                         MethodHandleDesc.ofMethod(
                             DirectMethodHandleDesc.Kind.VIRTUAL,
-                            JDAServiceClassDesc,
+                            CD_JDAService,
                             lambdaName,
-                            MethodTypeDesc.of(CD_void, BReadyEventClassDesc, IEventManagerClassDesc)
+                            MethodTypeDesc.of(CD_void, CD_BReadyEvent, CD_IEventManager)
                         ),
                         // This is the 6th argument of LambdaMetafactory#metafactory, "dynamicMethodType",
                         // this is "the signature and return type to be enforced dynamically at invocation type"
@@ -135,13 +141,4 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
 
         return newBytes
     }
-
-    private val JDAServiceClassDesc: ClassDesc
-        get() = ClassDesc.ofDescriptor("Lio/github/freya022/botcommands/api/core/JDAService;")
-
-    private val BReadyEventClassDesc: ClassDesc
-        get() = ClassDesc.ofDescriptor("Lio/github/freya022/botcommands/api/core/events/BReadyEvent;")
-
-    private val IEventManagerClassDesc: ClassDesc
-        get() = ClassDesc.ofDescriptor("Lnet/dv8tion/jda/api/hooks/IEventManager;")
 }
