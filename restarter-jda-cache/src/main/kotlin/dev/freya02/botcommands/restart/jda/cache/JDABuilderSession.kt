@@ -3,7 +3,6 @@ package dev.freya02.botcommands.restart.jda.cache
 import io.github.freya022.botcommands.api.core.BContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.OnlineStatus
 import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger { }
@@ -25,102 +24,88 @@ class JDABuilderSession(
     private val key: String,
 ) {
 
-    private var isIncompatible = false
+    @get:DynamicCall
+    val configuration = JDABuilderConfiguration()
     var wasBuilt: Boolean = false
         private set
-    private val builderValues: MutableMap<ValueType, Any?> = hashMapOf()
-    private lateinit var shutdownFunction: Runnable
 
-    // So we can track the initial token and intents, the constructor will be instrumented and call this method
-    // The user overriding the values using token/intent setters should not be an issue
-    fun onInit(token: String?, intents: Int) {
-        builderValues[ValueType.TOKEN] = token
-        builderValues[ValueType.INTENTS] = intents
+    @DynamicCall
+    fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
+        JDACache[key] = JDACache.Data(configuration, instance, shutdownFunction)
     }
 
-    fun markIncompatible() {
-        // TODO log which method is incompatible, pass the method name using codegen
-        isIncompatible = true
-    }
-
-    fun setStatus(status: OnlineStatus) {
-        builderValues[ValueType.STATUS] = status
-    }
-
-    // TODO make onShutdown(shutdownFunction: Runnable)
-    //  Do nothing initially, save the callback
-    //  When building the new instance, shutdown if the new instance is incompatible
-    //  If it is compatible then swap the event manager and send the events
-    //  This may actually not be an actual swap, we could use a SPI to provide our own IEventManager implementation,
-    //  which we use on all instances, this way we can control exactly when to buffer events
-    //  and when to release them to the actual event manager
-    fun onShutdown(shutdownFunction: Runnable) {
-        this.shutdownFunction = shutdownFunction
-    }
-
+    @DynamicCall
     fun onBuild(buildFunction: Supplier<JDA>): JDA {
-        val jda: JDA
-        if (isIncompatible) {
-            logger.debug { "Configured JDABuilder is incompatible, building a new JDA instance with key '$key'" }
-            jda = buildFunction.get()
-            JDACache[key] = jda
-        } else if (key in JDACache) {
-            logger.debug { "Reusing JDA instance with key '$key'" }
-            jda = JDACache[key]!!
-            // TODO need to set the event manager to the new instance
-            //  Pass the new IEventManager to session constructor
-            //  then wrap and set it here
-        } else {
-            logger.debug { "Saving a new JDA instance with key '$key'" }
-            jda = buildFunction.get()
-            JDACache[key] = jda
-            // TODO wrap event manager and set it
-        }
-
+        val jda = buildOrReuse(buildFunction)
         wasBuilt = true
-
         return jda
     }
 
-    enum class ValueType {
-        TOKEN,
-        INTENTS,
-        STATUS,
+    private fun buildOrReuse(buildFunction: Supplier<JDA>): JDA {
+        if (configuration.hasUnsupportedValues) {
+            logger.debug { "Configured JDABuilder has unsupported values, building a new JDA instance (key '$key')" }
+            val jda = buildFunction.get()
+            val oldInstanceData = JDACache.remove(key)
+            oldInstanceData?.doShutdown?.run()
+            // TODO: Get event manager then wrap it into our special one
+            return jda
+        }
+
+        fun createNewInstance(): JDA {
+            val jda = buildFunction.get()
+            // TODO: Get event manager then wrap it into our special one
+            return jda
+        }
+
+        val cachedData = JDACache[key]
+        if (cachedData == null) {
+            logger.debug { "Creating a new JDA instance (key '$key')" }
+            return createNewInstance()
+        }
+
+        if (cachedData.configuration isSameAs configuration) {
+            logger.debug { "Reusing JDA instance with compatible configuration (key '$key')" }
+            val jda = JDACache[key]!!.jda
+            // TODO: Get event manager, cast it to our special one,
+            //  set the delegate to value of JDA#getEventManager,
+            //  then flush the event cache to it
+            // TODO: Also send start up events again
+            return jda
+        } else {
+            logger.debug { "Creating a new JDA instance as its configuration changed (key '$key')" }
+            return createNewInstance()
+        }
     }
 
     companion object {
-        // TODO maybe we should switch to a "create" function which store a session into a map where the key is the session key
-        //   so we don't need the JDACache object, and we can also store the event manager directly
-        //   Then replace currentSession() with getSession(cacheKey: String)
-        private val _currentSession: ThreadLocal<JDABuilderSession> =
+        // I would store them in a Map, but JDABuilder has no idea what the key is
+        private val activeSession: ThreadLocal<JDABuilderSession> =
             ThreadLocal.withInitial { error("No JDABuilderSession exists for this thread") }
 
         @JvmStatic
-        fun currentSession(): JDABuilderSession {
-            return _currentSession.get()
-        }
+        @DynamicCall
+        fun currentSession(): JDABuilderSession = activeSession.get()
 
         @JvmStatic
-        fun getCacheKey(context: BContext): String? {
-            return context.config.restartConfig.cacheKey
-        }
+        @DynamicCall
+        fun getCacheKey(context: BContext): String? = context.config.restartConfig.cacheKey
 
-        // TODO maybe we should pass the IEventManager so we can set it on the new/current event manager
         @JvmStatic
+        @DynamicCall
         fun withBuilderSession(
             key: String,
             // Use Java function types to make codegen a bit more reliable
             block: Runnable
         ) {
             val session = JDABuilderSession(key)
-            _currentSession.set(session)
+            activeSession.set(session)
             try {
                 block.run()
                 if (!session.wasBuilt) {
                     logger.warn { "Could not save/restore any JDA session as none were built" }
                 }
             } finally {
-                _currentSession.remove()
+                activeSession.remove()
             }
         }
     }

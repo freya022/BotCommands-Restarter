@@ -11,17 +11,17 @@ class JDABuilderTransformerTest {
 
     @Test
     fun `Constructor is instrumented`() {
-        val builderSession = mockk<JDABuilderSession> {
+        val builderConfiguration = mockk<JDABuilderConfiguration> {
             every { onInit(any(), any()) } just runs
-            every { markIncompatible() } just runs
+            every { markUnsupportedValue() } just runs
         }
 
         mockkObject(JDABuilderSession)
-        every { JDABuilderSession.currentSession() } answers { builderSession }
+        every { JDABuilderSession.currentSession().configuration } answers { builderConfiguration }
 
         JDABuilder.create("MY_TOKEN", setOf(GatewayIntent.GUILD_MEMBERS))
 
-        verify(exactly = 1) { builderSession.onInit("MY_TOKEN", GatewayIntent.getRaw(GatewayIntent.GUILD_MEMBERS)) }
+        verify(exactly = 1) { builderConfiguration.onInit("MY_TOKEN", GatewayIntent.getRaw(GatewayIntent.GUILD_MEMBERS)) }
     }
 
     @Test
@@ -30,17 +30,17 @@ class JDABuilderTransformerTest {
         val builder = createJDABuilder()
 
         // Actual test
-        val builderSession = mockk<JDABuilderSession> {
+        val builderConfiguration = mockk<JDABuilderConfiguration> {
             every { onInit(any(), any()) } just runs
-            every { markIncompatible() } just runs
+            every { markUnsupportedValue() } just runs
         }
 
         mockkObject(JDABuilderSession)
-        every { JDABuilderSession.currentSession() } returns builderSession
+        every { JDABuilderSession.currentSession().configuration } returns builderConfiguration
 
         builder.setHttpClientBuilder(OkHttpClient.Builder())
 
-        verify(exactly = 1) { builderSession.markIncompatible() }
+        verify(exactly = 1) { builderConfiguration.markUnsupportedValue() }
     }
 
     @Test
@@ -49,25 +49,29 @@ class JDABuilderTransformerTest {
         val builder = createJDABuilder()
 
         // Actual test
-        val builderSession = mockk<JDABuilderSession> {
+        val builderConfiguration = mockk<JDABuilderConfiguration> {
             every { onInit(any(), any()) } just runs
             every { setStatus(any()) } just runs
         }
 
         mockkObject(JDABuilderSession)
-        every { JDABuilderSession.currentSession() } returns builderSession
+        every { JDABuilderSession.currentSession().configuration } returns builderConfiguration
 
         builder.setStatus(OnlineStatus.DO_NOT_DISTURB)
 
-        verify(exactly = 1) { builderSession.setStatus(OnlineStatus.DO_NOT_DISTURB) }
+        verify(exactly = 1) { builderConfiguration.setStatus(OnlineStatus.DO_NOT_DISTURB) }
     }
 
     @Test
     fun `Build method is instrumented`() {
-        val builderSession = mockk<JDABuilderSession> {
+        val builderConfiguration = mockk<JDABuilderConfiguration> {
             every { onInit(any(), any()) } just runs
-            every { markIncompatible() } just runs
+            every { markUnsupportedValue() } just runs
+        }
+
+        val builderSession = mockk<JDABuilderSession> {
             every { onBuild(any()) } returns mockk()
+            every { configuration } returns builderConfiguration
         }
 
         mockkObject(JDABuilderSession)
@@ -85,7 +89,7 @@ class JDABuilderTransformerTest {
     private fun createJDABuilder(): JDABuilder {
         lateinit var builder: JDABuilder
         mockkObject(JDABuilderSession) {
-            every { JDABuilderSession.currentSession() } returns mockk(relaxUnitFun = true)
+            every { JDABuilderSession.currentSession().configuration } returns mockk(relaxUnitFun = true)
 
             builder = JDABuilder.create("MY_TOKEN", emptySet())
         }

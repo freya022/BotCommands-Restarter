@@ -12,16 +12,60 @@ import java.lang.invoke.*
 private val logger = KotlinLogging.logger { }
 
 // Avoid importing BC and JDA classes
+private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
 private val CD_JDAImpl = ClassDesc.of("net.dv8tion.jda.internal.JDAImpl")
+private val CD_JDABuilderSession = classDesc<JDABuilderSession>()
+
+private const val builderSessionFieldName = "builderSession"
 
 internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/jda/internal/JDAImpl") {
 
     override fun transform(classData: ByteArray): ByteArray {
         val classFile = ClassFile.of()
-        return classFile.transformClass(
-            classFile.parse(classData),
-            ShutdownTransform()
-        )
+        val classModel = classFile.parse(classData)
+        return classFile.build(classModel.thisClass().asSymbol()) { classBuilder ->
+            classBuilder.withField(builderSessionFieldName, CD_JDABuilderSession, ACC_PRIVATE or ACC_FINAL)
+
+            classBuilder.withMethod("getBuilderSession", MethodTypeDesc.of(CD_JDABuilderSession), ACC_PUBLIC) { methodBuilder ->
+                methodBuilder.withCode { codeBuilder ->
+                    codeBuilder.aload(codeBuilder.receiverSlot())
+                    codeBuilder.getfield(CD_JDAImpl, "builderSession", CD_JDABuilderSession)
+                    codeBuilder.areturn()
+                }
+            }
+
+            val transform = CaptureSessionKeyTransform()
+                .andThen(ShutdownTransform())
+            classBuilder.transform(classModel, transform)
+        }
+    }
+}
+
+private class CaptureSessionKeyTransform : ClassTransform {
+
+    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
+        if (!methodModel.methodName().equalsString("<init>")) return classBuilder.retain(classElement)
+
+        // No need to check the signature, we can assign the field in all constructors
+
+        logger.trace { "Transforming (one of) JDAImpl's constructor" }
+
+        classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
+            val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
+
+            methodBuilder.withCode { codeBuilder ->
+                val thisSlot = codeBuilder.receiverSlot()
+
+                // this.builderSession = JDABuilderSession.currentSession()
+                codeBuilder.aload(thisSlot)
+                codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
+                codeBuilder.putfield(CD_JDAImpl, builderSessionFieldName, CD_JDABuilderSession)
+
+                // Add existing instructions
+                codeModel.forEach { codeBuilder.with(it) }
+            }
+        }
     }
 }
 
@@ -60,8 +104,8 @@ private class ShutdownTransform : ClassTransform {
             methodBuilder.withCode { codeBuilder ->
                 val thisSlot = codeBuilder.receiverSlot()
 
-                val builderSessionSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
                 val doShutdownSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+                val builderSessionSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
 
                 // Runnable doShutdown = this::doShutdown
                 codeBuilder.aload(thisSlot)
@@ -100,14 +144,16 @@ private class ShutdownTransform : ClassTransform {
                 ))
                 codeBuilder.astore(doShutdownSlot)
 
-                // JDABuilderSession session = JDABuilderSession.currentSession();
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
+                // var builderSession = getBuilderSession()
+                codeBuilder.aload(thisSlot)
+                codeBuilder.invokevirtual(CD_JDAImpl, "getBuilderSession", MethodTypeDesc.of(CD_JDABuilderSession))
                 codeBuilder.astore(builderSessionSlot)
 
-                // session.onShutdown(this::doShutdown);
+                // builderSession.onShutdown(this, this::doShutdown);
                 codeBuilder.aload(builderSessionSlot)
+                codeBuilder.aload(thisSlot)
                 codeBuilder.aload(doShutdownSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onShutdown", MethodTypeDesc.of(CD_void, classDesc<Runnable>()))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, classDesc<Runnable>()))
 
                 codeBuilder.return_()
             }

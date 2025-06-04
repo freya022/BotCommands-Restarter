@@ -1,5 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderConfiguration
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
@@ -48,19 +49,20 @@ private class ConstructorTransform : ClassTransform {
             val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
 
             methodBuilder.withCode { codeBuilder ->
-                val builderSessionSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+                val builderConfigurationSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
                 val tokenSlot = codeBuilder.parameterSlot(0)
                 val intentsSlot = codeBuilder.parameterSlot(1)
 
-                // JDABuilderSession session = JDABuilderSession.currentSession();
+                // JDABuilderConfiguration configuration = JDABuilderSession.currentSession().getConfiguration();
                 codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
-                codeBuilder.astore(builderSessionSlot)
+                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "getConfiguration", MethodTypeDesc.of(classDesc<JDABuilderConfiguration>()))
+                codeBuilder.astore(builderConfigurationSlot)
 
-                // session.onInit(token, intents);
-                codeBuilder.aload(builderSessionSlot)
+                // configuration.onInit(token, intents);
+                codeBuilder.aload(builderConfigurationSlot)
                 codeBuilder.aload(tokenSlot)
                 codeBuilder.iload(intentsSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onInit", MethodTypeDesc.of(CD_void, CD_String, CD_int))
+                codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "onInit", MethodTypeDesc.of(CD_void, CD_String, CD_int))
 
                 // Add existing instructions
                 codeModel.forEach { codeBuilder.with(it) }
@@ -166,7 +168,7 @@ private class BuildTransform : ClassTransform {
 private class PublicInstanceMethodTransform : ClassTransform {
 
     private val builderSessionMethods: Map<MethodTypeDesc, MethodModel> = ClassFile.of()
-        .parse(JDABuilderSession::class.java.getResourceAsStream("JDABuilderSession.class")!!.readAllBytes())
+        .parse(JDABuilderConfiguration::class.java.getResourceAsStream("JDABuilderConfiguration.class")!!.readAllBytes())
         .methods()
         .associateBy { it.methodTypeSymbol() }
 
@@ -182,11 +184,12 @@ private class PublicInstanceMethodTransform : ClassTransform {
 
             val hasBuilderSessionMethod = methodModel.methodTypeSymbol().changeReturnType(CD_void) in builderSessionMethods
             methodBuilder.withCode { codeBuilder ->
-                val builderSessionSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+                val builderConfigurationSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
 
-                // JDABuilderSession session = JDABuilderSession.currentSession();
+                // JDABuilderConfiguration configuration = JDABuilderSession.currentSession().getConfiguration();
                 codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
-                codeBuilder.astore(builderSessionSlot)
+                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "getConfiguration", MethodTypeDesc.of(classDesc<JDABuilderConfiguration>()))
+                codeBuilder.astore(builderConfigurationSlot)
 
                 if (hasBuilderSessionMethod) {
                     logger.trace { "Registering $methodModel as a cache-compatible method" }
@@ -195,20 +198,20 @@ private class PublicInstanceMethodTransform : ClassTransform {
                     // Set return type to "void" because our method won't return JDABuilder, and it doesn't matter anyway
                     val methodType = methodModel.methodTypeSymbol().changeReturnType(CD_void)
 
-                    // session.theMethod(parameters);
-                    codeBuilder.aload(builderSessionSlot)
+                    // configuration.theMethod(parameters);
+                    codeBuilder.aload(builderConfigurationSlot)
                     methodType.parameterList().forEachIndexed { index, parameter ->
                         val typeKind = TypeKind.fromDescriptor(parameter.descriptorString())
                         val slot = codeBuilder.parameterSlot(index)
                         codeBuilder.loadLocal(typeKind, slot)
                     }
-                    codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), methodName, methodType)
+                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), methodName, methodType)
                 } else {
                     logger.trace { "Skipping $methodModel as it does not have an equivalent method handler" }
 
-                    // session.markIncompatible()
-                    codeBuilder.aload(builderSessionSlot)
-                    codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "markIncompatible", MethodTypeDesc.of(CD_void))
+                    // configuration.markUnsupportedValue()
+                    codeBuilder.aload(builderConfigurationSlot)
+                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "markUnsupportedValue", MethodTypeDesc.of(CD_void))
                 }
 
                 // Add existing instructions

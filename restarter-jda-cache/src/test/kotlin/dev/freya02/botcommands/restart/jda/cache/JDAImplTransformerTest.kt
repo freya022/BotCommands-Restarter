@@ -9,18 +9,17 @@ class JDAImplTransformerTest {
     @Test
     fun `Shutdown method is instrumented`() {
         val builderSession = mockk<JDABuilderSession> {
-            every { onShutdown(any()) } just runs
+            every { onShutdown(any(), any()) } just runs
         }
 
-        mockkObject(JDABuilderSession)
-        every { JDABuilderSession.currentSession() } returns builderSession
-
         val jda = mockk<JDAImpl> {
+            // If this getter is missing, then the codegen changed
+            every { this@mockk["getBuilderSession"]() } returns builderSession
             every { shutdown() } answers { callOriginal() }
         }
 
         jda.shutdown()
 
-        verify(exactly = 1) { builderSession.onShutdown(any()) }
+        verify(exactly = 1) { builderSession.onShutdown(jda, any()) }
     }
 }
