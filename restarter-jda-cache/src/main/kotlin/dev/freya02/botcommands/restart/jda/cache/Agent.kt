@@ -9,5 +9,6 @@ object Agent {
         println("Agent args: $agentArgs")
         inst.addTransformer(JDABuilderTransformer)
         inst.addTransformer(JDAServiceTransformer)
+        inst.addTransformer(JDAImplTransformer)
     }
 }

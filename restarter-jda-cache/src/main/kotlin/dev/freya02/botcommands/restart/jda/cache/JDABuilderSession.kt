@@ -29,6 +29,7 @@ class JDABuilderSession(
     var wasBuilt: Boolean = false
         private set
     private val builderValues: MutableMap<ValueType, Any?> = hashMapOf()
+    private lateinit var shutdownFunction: Runnable
 
     // So we can track the initial token and intents, the constructor will be instrumented and call this method
     // The user overriding the values using token/intent setters should not be an issue
@@ -53,6 +54,9 @@ class JDABuilderSession(
     //  This may actually not be an actual swap, we could use a SPI to provide our own IEventManager implementation,
     //  which we use on all instances, this way we can control exactly when to buffer events
     //  and when to release them to the actual event manager
+    fun onShutdown(shutdownFunction: Runnable) {
+        this.shutdownFunction = shutdownFunction
+    }
 
     fun onBuild(buildFunction: Supplier<JDA>): JDA {
         val jda: JDA
@@ -85,6 +89,9 @@ class JDABuilderSession(
     }
 
     companion object {
+        // TODO maybe we should switch to a "create" function which store a session into a map where the key is the session key
+        //   so we don't need the JDACache object, and we can also store the event manager directly
+        //   Then replace currentSession() with getSession(cacheKey: String)
         private val _currentSession: ThreadLocal<JDABuilderSession> =
             ThreadLocal.withInitial { error("No JDABuilderSession exists for this thread") }
 
