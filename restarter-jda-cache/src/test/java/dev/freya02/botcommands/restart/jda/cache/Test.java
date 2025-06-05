@@ -29,12 +29,6 @@ public class Test extends JDAService {
     }
 
     void something(BReadyEvent bReadyEvent, IEventManager iEventManager) {
-        var a = "a";
-        if (a == null) {
-            System.out.println("null");
-            return;
-        }
-
-        System.out.println("not null");
+        throw new IllegalStateException("test");
     }
 }

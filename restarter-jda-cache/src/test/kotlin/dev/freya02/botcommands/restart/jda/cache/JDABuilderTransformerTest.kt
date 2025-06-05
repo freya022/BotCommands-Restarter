@@ -1,10 +1,15 @@
 package dev.freya02.botcommands.restart.jda.cache
 
 import io.mockk.*
+import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.OnlineStatus
+import net.dv8tion.jda.api.events.GenericEvent
+import net.dv8tion.jda.api.hooks.IEventManager
 import net.dv8tion.jda.api.requests.GatewayIntent
 import okhttp3.OkHttpClient
+import org.junit.jupiter.api.assertThrows
+import java.util.function.Supplier
 import kotlin.test.Test
 
 class JDABuilderTransformerTest {
@@ -82,6 +87,32 @@ class JDABuilderTransformerTest {
         verify(exactly = 1) { builderSession.onBuild(any()) }
     }
 
+    @Test
+    fun `Build sets our event manager`() {
+        val builderConfiguration = mockk<JDABuilderConfiguration> {
+            every { onInit(any(), any()) } just runs
+            every { markUnsupportedValue() } just runs
+        }
+
+        val builderSession = mockk<JDABuilderSession> {
+            every { onBuild(any()) } answers { arg<Supplier<JDA>>(0).get() }
+            every { configuration } returns builderConfiguration
+        }
+
+        mockkObject(JDABuilderSession)
+        every { JDABuilderSession.currentSession() } returns builderSession
+
+        val builder = spyk(JDABuilder.createDefault("MY_TOKEN").setEventManager(DummyEventManager))
+
+        // The special event manager is set on JDABuilder#build() before any original code is run
+        // so we'll throw an exception on the first method call of the original code,
+        // which is checkIntents()
+        every { builder["checkIntents"]() } throws ExpectedException()
+        assertThrows<ExpectedException> { builder.build() }
+
+        verify(exactly = 1) { builder.setEventManager(ofType<BufferingEventManager>()) }
+    }
+
     /**
      * Creates a basic JDABuilder,
      * call this on the first line to not record any mocking data before doing the actual test.
@@ -96,4 +127,17 @@ class JDABuilderTransformerTest {
 
         return builder
     }
+
+    private object DummyEventManager : IEventManager {
+
+        override fun register(listener: Any) {}
+
+        override fun unregister(listener: Any) {}
+
+        override fun handle(event: GenericEvent) {}
+
+        override fun getRegisteredListeners(): List<Any?> = emptyList()
+    }
+
+    private class ExpectedException : RuntimeException()
 }

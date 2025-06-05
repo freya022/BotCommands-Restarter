@@ -1,5 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.BufferingEventManager
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderConfiguration
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -16,6 +17,11 @@ private val logger = KotlinLogging.logger { }
 // Avoid importing BC and JDA classes
 private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
 private val CD_JDABuilder = ClassDesc.of("net.dv8tion.jda.api.JDABuilder")
+private val CD_IEventManager = ClassDesc.of("net.dv8tion.jda.api.hooks.IEventManager")
+
+private val CD_BufferingEventManager = classDesc<BufferingEventManager>()
+
+private val CD_IllegalStateException = ClassDesc.of("java.lang.IllegalStateException")
 
 internal object JDABuilderTransformer : AbstractClassFileTransformer("net/dv8tion/jda/api/JDABuilder") {
 
@@ -95,8 +101,44 @@ private class BuildTransform : ClassTransform {
             val codeModel = methodModel.code().get()
 
             methodBuilder.withCode { codeBuilder ->
+                val thisSlot = codeBuilder.receiverSlot()
+
+                val bufferingEventManagerSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
+
+                // JDABuilder's eventManager is null by default,
+                // however, the framework mandates setting a framework-provided event manager,
+                // so let's just throw if it is null.
+                val nullEventManagerLabel = codeBuilder.newLabel()
+                codeBuilder.aload(thisSlot)
+                codeBuilder.getfield(CD_JDABuilder, "eventManager", CD_IEventManager)
+                codeBuilder.ifnull(nullEventManagerLabel)
+
+                // var bufferingEventManager = new BufferingEventManager
+                codeBuilder.new_(CD_BufferingEventManager)
+                codeBuilder.astore(bufferingEventManagerSlot)
+
+                // bufferingEventManager.<init>(eventManager)
+                codeBuilder.aload(bufferingEventManagerSlot)
+                codeBuilder.aload(thisSlot)
+                codeBuilder.getfield(CD_JDABuilder, "eventManager", CD_IEventManager)
+                codeBuilder.invokespecial(CD_BufferingEventManager, "<init>", MethodTypeDesc.of(CD_void, CD_IEventManager))
+
+                // this.setEventManager(eventManager)
+                codeBuilder.aload(thisSlot)
+                codeBuilder.aload(bufferingEventManagerSlot)
+                codeBuilder.invokevirtual(CD_JDABuilder, "setEventManager", MethodTypeDesc.of(CD_JDABuilder, CD_IEventManager))
+
                 // Move the build() code to doBuild()
                 codeModel.forEach { codeBuilder.with(it) }
+
+                // Branch when "eventManager" is null
+                codeBuilder.labelBinding(nullEventManagerLabel)
+
+                codeBuilder.new_(CD_IllegalStateException)
+                codeBuilder.dup()
+                codeBuilder.ldc("The event manager must be set using the one provided in JDAService#createJDA" as java.lang.String)
+                codeBuilder.invokespecial(CD_IllegalStateException, "<init>", MethodTypeDesc.of(CD_void, CD_String))
+                codeBuilder.athrow()
             }
         }
 

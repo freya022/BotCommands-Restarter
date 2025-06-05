@@ -31,6 +31,9 @@ class JDABuilderSession(
 
     @DynamicCall
     fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
+        val eventManager = instance.eventManager as? BufferingEventManager
+        eventManager?.detach() // If the event manager isn't what we expect, it will be logged when attempting to reuse
+
         JDACache[key] = JDACache.Data(configuration, instance, shutdownFunction)
     }
 
@@ -42,19 +45,16 @@ class JDABuilderSession(
     }
 
     private fun buildOrReuse(buildFunction: Supplier<JDA>): JDA {
-        if (configuration.hasUnsupportedValues) {
-            logger.debug { "Configured JDABuilder has unsupported values, building a new JDA instance (key '$key')" }
+        fun createNewInstance(): JDA {
             val jda = buildFunction.get()
             val oldInstanceData = JDACache.remove(key)
             oldInstanceData?.doShutdown?.run()
-            // TODO: Get event manager then wrap it into our special one
             return jda
         }
 
-        fun createNewInstance(): JDA {
-            val jda = buildFunction.get()
-            // TODO: Get event manager then wrap it into our special one
-            return jda
+        if (configuration.hasUnsupportedValues) {
+            logger.debug { "Configured JDABuilder has unsupported values, building a new JDA instance (key '$key')" }
+            return createNewInstance()
         }
 
         val cachedData = JDACache[key]
@@ -65,11 +65,16 @@ class JDABuilderSession(
 
         if (cachedData.configuration isSameAs configuration) {
             logger.debug { "Reusing JDA instance with compatible configuration (key '$key')" }
-            val jda = JDACache[key]!!.jda
-            // TODO: Get event manager, cast it to our special one,
-            //  set the delegate to value of JDA#getEventManager,
-            //  then flush the event cache to it
-            // TODO: Also send start up events again
+            val jda = cachedData.jda
+            val eventManager = jda.eventManager as? BufferingEventManager
+                ?: run {
+                    logger.warn { "Expected a BufferingEventManager but got a ${jda.eventManager.javaClass.name}, creating a new instance" }
+                    cachedData.doShutdown.run()
+                    return createNewInstance()
+                }
+
+            eventManager.setDelegate(configuration.eventManager)
+            // TODO: Send start up events again
             return jda
         } else {
             logger.debug { "Creating a new JDA instance as its configuration changed (key '$key')" }
