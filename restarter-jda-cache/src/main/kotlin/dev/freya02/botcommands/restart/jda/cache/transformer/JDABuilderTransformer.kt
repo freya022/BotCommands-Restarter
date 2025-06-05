@@ -251,9 +251,12 @@ private class PublicInstanceMethodTransform : ClassTransform {
                 } else {
                     logger.trace { "Skipping $methodModel as it does not have an equivalent method handler" }
 
+                    val signature = methodModel.methodName().stringValue() + "(${methodModel.methodTypeSymbol().parameterList().joinToString { it.displayName() }})"
+
                     // configuration.markUnsupportedValue()
                     codeBuilder.aload(builderConfigurationSlot)
-                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "markUnsupportedValue", MethodTypeDesc.of(CD_void))
+                    codeBuilder.ldc(signature as java.lang.String)
+                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "markUnsupportedValue", MethodTypeDesc.of(CD_void, CD_String))
                 }
 
                 // Add existing instructions

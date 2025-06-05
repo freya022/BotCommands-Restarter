@@ -1,10 +1,15 @@
 package dev.freya02.botcommands.restart.jda.cache
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import net.dv8tion.jda.api.OnlineStatus
 import net.dv8tion.jda.api.hooks.IEventManager
 import net.dv8tion.jda.api.hooks.InterfacedEventManager
 
+private val logger = KotlinLogging.logger { }
+
 class JDABuilderConfiguration internal constructor() {
+
+    private val warnedUnsupportedValues: MutableSet<String> = hashSetOf()
 
     var hasUnsupportedValues = false
         private set
@@ -22,8 +27,9 @@ class JDABuilderConfiguration internal constructor() {
     }
 
     @DynamicCall
-    fun markUnsupportedValue() {
-        // TODO log which method is incompatible, pass the method name using codegen
+    fun markUnsupportedValue(signature: String) {
+        if (warnedUnsupportedValues.add(signature))
+            logger.warn { "Unsupported JDABuilder method '$signature', JDA will not be cached between restarts" }
         hasUnsupportedValues = true
     }
 
