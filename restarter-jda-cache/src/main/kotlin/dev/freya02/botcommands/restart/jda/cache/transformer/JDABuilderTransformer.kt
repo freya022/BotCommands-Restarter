@@ -218,6 +218,7 @@ private class PublicInstanceMethodTransform : ClassTransform {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
         if (!methodModel.flags().has(AccessFlag.PUBLIC)) return classBuilder.retain(classElement)
         if (methodModel.flags().has(AccessFlag.STATIC)) return classBuilder.retain(classElement)
+        if (methodModel.methodName().stringValue() == "build") return classBuilder.retain(classElement)
 
         logger.trace { "Transforming ${methodModel.methodName().stringValue()}" }
 
