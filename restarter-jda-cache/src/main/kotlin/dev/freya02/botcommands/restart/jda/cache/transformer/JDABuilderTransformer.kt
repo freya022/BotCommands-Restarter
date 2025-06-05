@@ -167,10 +167,10 @@ private class BuildTransform : ClassTransform {
 
 private class PublicInstanceMethodTransform : ClassTransform {
 
-    private val builderSessionMethods: Map<MethodTypeDesc, MethodModel> = ClassFile.of()
+    private val builderSessionMethods: Set<MethodDesc> = ClassFile.of()
         .parse(JDABuilderConfiguration::class.java.getResourceAsStream("JDABuilderConfiguration.class")!!.readAllBytes())
         .methods()
-        .associateBy { it.methodTypeSymbol() }
+        .mapTo(hashSetOf(), ::MethodDesc)
 
     override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
@@ -182,7 +182,7 @@ private class PublicInstanceMethodTransform : ClassTransform {
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
 
-            val hasBuilderSessionMethod = methodModel.methodTypeSymbol().changeReturnType(CD_void) in builderSessionMethods
+            val hasBuilderSessionMethod = methodModel.let(::MethodDesc) in builderSessionMethods
             methodBuilder.withCode { codeBuilder ->
                 val builderConfigurationSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
 
@@ -218,5 +218,16 @@ private class PublicInstanceMethodTransform : ClassTransform {
                 codeModel.forEach { codeBuilder.with(it) }
             }
         }
+    }
+
+    // Utility to match methods using their name and parameters, but not return type
+    private data class MethodDesc(
+        val name: String,
+        val paramTypes: List<ClassDesc>
+    ) {
+        constructor(methodModel: MethodModel) : this(
+            methodModel.methodName().stringValue(),
+            methodModel.methodTypeSymbol().parameterList(),
+        )
     }
 }
