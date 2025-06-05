@@ -89,10 +89,7 @@ class JDABuilderTransformerTest {
 
     @Test
     fun `Build sets our event manager`() {
-        val builderConfiguration = mockk<JDABuilderConfiguration> {
-            every { onInit(any(), any()) } just runs
-            every { markUnsupportedValue() } just runs
-        }
+        val builderConfiguration = mockk<JDABuilderConfiguration>(relaxUnitFun = true)
 
         val builderSession = mockk<JDABuilderSession> {
             every { onBuild(any()) } answers { arg<Supplier<JDA>>(0).get() }
