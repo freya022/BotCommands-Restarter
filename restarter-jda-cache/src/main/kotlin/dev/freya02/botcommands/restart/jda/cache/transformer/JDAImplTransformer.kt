@@ -37,6 +37,7 @@ internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/j
 
             val transform = CaptureSessionKeyTransform()
                 .andThen(ShutdownTransform())
+                .andThen(AwaitShutdownTransform())
             classBuilder.transform(classModel, transform)
         }
     }
@@ -157,6 +158,25 @@ private class ShutdownTransform : ClassTransform {
                 codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, classDesc<Runnable>()))
 
                 codeBuilder.return_()
+            }
+        }
+    }
+}
+
+private class AwaitShutdownTransform : ClassTransform {
+
+    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
+        if (!methodModel.methodName().equalsString("awaitShutdown")) return classBuilder.retain(classElement)
+
+        logger.trace { "Transforming (one of) JDA's awaitShutdown method" }
+
+        classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
+            if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
+
+            methodBuilder.withCode { codeBuilder ->
+                codeBuilder.iconst_0()
+                codeBuilder.ireturn()
             }
         }
     }
