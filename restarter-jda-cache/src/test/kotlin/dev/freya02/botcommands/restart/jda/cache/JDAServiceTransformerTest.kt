@@ -25,7 +25,7 @@ class JDAServiceTransformerTest {
         mockkObject(JDABuilderSession)
         every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() } // Will call createJDA
 
-        val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
+        val onReadyEvent = JDAService::class.java.getDeclaredMethod($$"onReadyEvent$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
         val bot = mockk<Bot> {
             every { createJDA(any(), any()) } just runs
             every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession
@@ -46,7 +46,7 @@ class JDAServiceTransformerTest {
         mockkObject(JDABuilderSession)
         every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() }
 
-        val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
+        val onReadyEvent = JDAService::class.java.getDeclaredMethod($$"onReadyEvent$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
         val bot = mockk<Bot> {
             every { createJDA(any(), any()) } just runs
             every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession
@@ -68,7 +68,7 @@ class JDAServiceTransformerTest {
         every { JDABuilderSession.withBuilderSession(any(), any()) } answers { callOriginal() }
         every { JDABuilderSession.getCacheKey(any()) } answers { callOriginal() }
 
-        val onReadyEvent = JDAService::class.java.getDeclaredMethod("onReadyEvent\$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
+        val onReadyEvent = JDAService::class.java.getDeclaredMethod($$"onReadyEvent$BotCommands", BReadyEvent::class.java, IEventManager::class.java)
         val bot = mockk<Bot> {
             every { createJDA(any(), any()) } just runs
             every { onReadyEvent.invoke(this@mockk, any<BReadyEvent>(), any<IEventManager>()) } answers { callOriginal() } // Will call withBuilderSession

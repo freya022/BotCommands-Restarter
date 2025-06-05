@@ -22,7 +22,7 @@ private val CD_IEventManager = ClassDesc.of("net.dv8tion.jda.api.hooks.IEventMan
 
 internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/freya022/botcommands/api/core/JDAService") {
 
-    private const val TARGET_METHOD_NAME = "onReadyEvent\$BotCommands"
+    private const val TARGET_METHOD_NAME = $$"onReadyEvent$BotCommands"
     private const val TARGET_METHOD_SIGNATURE = "(Lio/github/freya022/botcommands/api/core/events/BReadyEvent;Lnet/dv8tion/jda/api/hooks/IEventManager;)V"
 
     override fun transform(classData: ByteArray): ByteArray {
@@ -37,7 +37,7 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
 
             // Put the original code of onReadyEvent in the lambda,
             // it will be fired by JDABuilderSession.withBuilderSession in onReadyEvent
-            val lambdaName = "lambda\$onReadyEvent\$BotCommands\$withBuilderSession"
+            val lambdaName = $$"lambda$onReadyEvent$BotCommands$withBuilderSession"
             classBuilder.withMethodBody(
                 lambdaName,
                 MethodTypeDesc.ofDescriptor(TARGET_METHOD_SIGNATURE),
