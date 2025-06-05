@@ -37,14 +37,14 @@ class JDABuilderConfiguration internal constructor() {
         _eventManager = eventManager
     }
 
-    infix fun isSameAs(other: JDABuilderConfiguration): Boolean {
-        // TODO: implement
-        return super.equals(other)
+    internal infix fun isSameAs(other: JDABuilderConfiguration): Boolean {
+        return builderValues == other.builderValues
     }
 
     private enum class ValueType {
         TOKEN,
         INTENTS,
         STATUS,
+        EVENT_PASSTHROUGH,
     }
 }
