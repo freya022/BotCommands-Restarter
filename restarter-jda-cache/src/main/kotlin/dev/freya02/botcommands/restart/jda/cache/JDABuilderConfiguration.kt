@@ -37,6 +37,11 @@ class JDABuilderConfiguration internal constructor() {
         _eventManager = eventManager
     }
 
+    @DynamicCall
+    fun setEventPassthrough(enable: Boolean) {
+        builderValues[ValueType.EVENT_PASSTHROUGH] = enable
+    }
+
     internal infix fun isSameAs(other: JDABuilderConfiguration): Boolean {
         return builderValues == other.builderValues
     }
