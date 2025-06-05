@@ -15,6 +15,8 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+
+            artifactId = "BotCommands-Restarter"
         }
     }
 }
