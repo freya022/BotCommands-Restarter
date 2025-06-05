@@ -18,6 +18,7 @@ private val CD_JDABuilderSession = classDesc<JDABuilderSession>()
 
 private const val builderSessionFieldName = "builderSession"
 
+// TODO add transform on JDAImpl#login(String, ShardInfo, Compression, boolean, int, GatewayEncoding)
 internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/jda/internal/JDAImpl") {
 
     override fun transform(classData: ByteArray): ByteArray {

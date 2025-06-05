@@ -23,7 +23,7 @@ private val logger = KotlinLogging.logger { }
 //  requiring to set up JDA manually, though not complicated, but also docker and that container's config
 //  An hybrid way would require rewriting that proxy,
 //  so our module can hook into JDA and set the gateway URL to the proxy's
-class JDABuilderSession(
+internal class JDABuilderSession private constructor(
     private val key: String,
 ) {
 
