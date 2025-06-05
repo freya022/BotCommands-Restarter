@@ -3,6 +3,9 @@ package dev.freya02.botcommands.restart.jda.cache
 import io.github.freya022.botcommands.api.core.BContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.events.StatusChangeEvent
+import net.dv8tion.jda.api.events.guild.GuildReadyEvent
+import net.dv8tion.jda.api.events.session.ReadyEvent
 import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger { }
@@ -74,7 +77,9 @@ class JDABuilderSession(
                 }
 
             eventManager.setDelegate(configuration.eventManager)
-            // TODO: Send start up events again
+            eventManager.handle(StatusChangeEvent(jda, JDA.Status.LOADING_SUBSYSTEMS, JDA.Status.CONNECTED))
+            jda.guildCache.forEachUnordered { eventManager.handle(GuildReadyEvent(jda, -1, it)) }
+            eventManager.handle(ReadyEvent(jda))
             return jda
         } else {
             logger.debug { "Creating a new JDA instance as its configuration changed (key '$key')" }
