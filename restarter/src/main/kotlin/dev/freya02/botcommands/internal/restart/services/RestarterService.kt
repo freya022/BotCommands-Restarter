@@ -21,8 +21,8 @@ internal class RestarterService internal constructor (
     init {
         Restarter.instance.addListener(object : RestartListener {
             override fun beforeStop() {
-                context.shutdown()
-                context.awaitShutdown()
+                context.shutdownNow()
+                context.awaitShutdown(context.config.shutdownTimeout)
             }
         })
     }
