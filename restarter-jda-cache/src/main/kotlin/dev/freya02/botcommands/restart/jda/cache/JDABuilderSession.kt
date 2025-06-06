@@ -98,9 +98,17 @@ internal class JDABuilderSession private constructor(
         private val activeSession: ThreadLocal<JDABuilderSession> =
             ThreadLocal.withInitial { error("No JDABuilderSession exists for this thread") }
 
+        private val sessions: MutableMap<String, JDABuilderSession> = hashMapOf()
+
         @JvmStatic
         @DynamicCall
         fun currentSession(): JDABuilderSession = activeSession.get()
+
+        @JvmStatic
+        @DynamicCall
+        fun getSession(key: String): JDABuilderSession {
+            return sessions[key] ?: error("No JDABuilderSession exists for key '$key'")
+        }
 
         @JvmStatic
         @DynamicCall
@@ -114,6 +122,7 @@ internal class JDABuilderSession private constructor(
             block: Runnable
         ) {
             val session = JDABuilderSession(key)
+            sessions[key] = session
             activeSession.set(session)
             try {
                 block.run()

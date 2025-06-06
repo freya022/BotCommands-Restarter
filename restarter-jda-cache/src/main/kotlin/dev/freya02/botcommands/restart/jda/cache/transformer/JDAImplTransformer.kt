@@ -16,7 +16,7 @@ private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
 private val CD_JDAImpl = ClassDesc.of("net.dv8tion.jda.internal.JDAImpl")
 private val CD_JDABuilderSession = classDesc<JDABuilderSession>()
 
-private const val builderSessionFieldName = "builderSession"
+private const val cacheKeyFieldName = "cacheKey"
 
 // TODO add transform on JDAImpl#login(String, ShardInfo, Compression, boolean, int, GatewayEncoding)
 internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/jda/internal/JDAImpl") {
@@ -25,12 +25,13 @@ internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/j
         val classFile = ClassFile.of()
         val classModel = classFile.parse(classData)
         return classFile.build(classModel.thisClass().asSymbol()) { classBuilder ->
-            classBuilder.withField(builderSessionFieldName, CD_JDABuilderSession, ACC_PRIVATE or ACC_FINAL)
+            classBuilder.withField(cacheKeyFieldName, CD_String, ACC_PRIVATE or ACC_FINAL)
 
             classBuilder.withMethod("getBuilderSession", MethodTypeDesc.of(CD_JDABuilderSession), ACC_PUBLIC) { methodBuilder ->
                 methodBuilder.withCode { codeBuilder ->
                     codeBuilder.aload(codeBuilder.receiverSlot())
-                    codeBuilder.getfield(CD_JDAImpl, "builderSession", CD_JDABuilderSession)
+                    codeBuilder.getfield(CD_JDAImpl, cacheKeyFieldName, CD_String)
+                    codeBuilder.invokestatic(CD_JDABuilderSession, "getSession", MethodTypeDesc.of(CD_JDABuilderSession, CD_String))
                     codeBuilder.areturn()
                 }
             }
@@ -60,10 +61,11 @@ private class CaptureSessionKeyTransform : ClassTransform {
             methodBuilder.withCode { codeBuilder ->
                 val thisSlot = codeBuilder.receiverSlot()
 
-                // this.builderSession = JDABuilderSession.currentSession()
+                // this.cacheKey = JDABuilderSession.currentSession().getKey()
                 codeBuilder.aload(thisSlot)
                 codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
-                codeBuilder.putfield(CD_JDAImpl, builderSessionFieldName, CD_JDABuilderSession)
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "getKey", MethodTypeDesc.of(CD_String))
+                codeBuilder.putfield(CD_JDAImpl, cacheKeyFieldName, CD_String)
 
                 // Add existing instructions
                 codeModel.forEach { codeBuilder.with(it) }
