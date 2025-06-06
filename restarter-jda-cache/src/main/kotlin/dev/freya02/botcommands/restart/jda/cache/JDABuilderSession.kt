@@ -34,6 +34,11 @@ internal class JDABuilderSession private constructor(
 
     @DynamicCall
     fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
+        if (isJvmShuttingDown()) {
+            shutdownFunction.run()
+            return
+        }
+
         val eventManager = instance.eventManager as? BufferingEventManager
         eventManager?.detach() // If the event manager isn't what we expect, it will be logged when attempting to reuse
 
