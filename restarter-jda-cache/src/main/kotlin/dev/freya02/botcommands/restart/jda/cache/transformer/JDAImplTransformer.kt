@@ -4,6 +4,7 @@ import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
+import java.lang.classfile.instruction.InvokeInstruction
 import java.lang.constant.*
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
@@ -191,7 +192,16 @@ private class ShutdownNowTransform : ClassTransform {
 
             methodBuilder.withCode { codeBuilder ->
                 // Move the shutdownNow() code to doShutdownNow()
-                codeModel.forEach { codeBuilder.with(it) }
+                codeModel.forEach { codeElement ->
+                    // Replace shutdown() with doShutdown() so we don't call [[JDABuilderSession#onShutdown]] more than once
+                    if (codeElement is InvokeInstruction && codeElement.name().equalsString("shutdown")) {
+                        require(codeElement.type().equalsString("()V"))
+                        codeBuilder.invokevirtual(codeElement.owner().asSymbol(), "doShutdown", MethodTypeDesc.of(CD_void))
+                        return@forEach
+                    }
+
+                    codeBuilder.with(codeElement)
+                }
             }
         }
 
