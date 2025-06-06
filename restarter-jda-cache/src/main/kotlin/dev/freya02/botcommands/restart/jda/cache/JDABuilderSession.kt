@@ -37,13 +37,13 @@ internal class JDABuilderSession private constructor(
     // May also be shutdownNow
     @DynamicCall
     fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
-        if (::scheduleShutdownSignal.isInitialized.not()) {
-            logger.error { "Expected BContextImpl#scheduleShutdownSignal to be called before shutdown, doing a full shut down" }
+        if (isJvmShuttingDown()) {
+            // "scheduleShutdownSignal" isn't there yet if this shutdown is triggered by JDA's shutdown hook
             return shutdownFunction.run()
         }
 
-        if (isJvmShuttingDown()) {
-            scheduleShutdownSignal.runFully()
+        if (::scheduleShutdownSignal.isInitialized.not()) {
+            logger.error { "Expected BContextImpl#scheduleShutdownSignal to be called before shutdown, doing a full shut down" }
             return shutdownFunction.run()
         }
 
