@@ -100,6 +100,11 @@ class JDABuilderConfiguration internal constructor() {
         builderValues[ValueType.ACTIVITY] = activity
     }
 
+    @DynamicCall
+    fun setEnableShutdownHook(enable: Boolean) {
+        builderValues[ValueType.ENABLE_SHUTDOWN_HOOK] = enable
+    }
+
     internal infix fun isSameAs(other: JDABuilderConfiguration): Boolean {
         if (hasUnsupportedValues) return false
         if (other.hasUnsupportedValues) return false
@@ -119,6 +124,7 @@ class JDABuilderConfiguration internal constructor() {
         MEMBER_CACHE_POLICY,
         CHUNKING_FILTER,
         LARGE_THRESHOLD,
-        ACTIVITY
+        ACTIVITY,
+        ENABLE_SHUTDOWN_HOOK,
     }
 }
