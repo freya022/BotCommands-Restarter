@@ -10,7 +10,6 @@ repositories {
 }
 
 dependencies {
-    implementation(projects.restarter)
     implementation(libs.kotlin.logging)
     implementation(libs.botcommands)
 
