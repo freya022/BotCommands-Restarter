@@ -30,13 +30,13 @@ internal object JDABuilderTransformer : AbstractClassFileTransformer("net/dv8tio
         return classFile.transformClass(
             classFile.parse(classData),
             PublicInstanceMethodTransform()
-                .andThen(ConstructorTransform())
+                .andThen(JDABuilderConstructorTransform())
                 .andThen(BuildTransform())
         )
     }
 }
 
-private class ConstructorTransform : ClassTransform {
+private class JDABuilderConstructorTransform : ClassTransform {
 
     override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
