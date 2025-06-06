@@ -32,6 +32,7 @@ internal class JDABuilderSession private constructor(
     var wasBuilt: Boolean = false
         private set
 
+    // May also be shutdownNow
     @DynamicCall
     fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
         if (isJvmShuttingDown()) {
