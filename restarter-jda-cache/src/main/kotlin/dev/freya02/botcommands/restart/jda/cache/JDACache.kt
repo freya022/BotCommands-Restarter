@@ -6,10 +6,6 @@ internal object JDACache {
 
     private val cache: MutableMap<String, Data> = hashMapOf()
 
-    internal operator fun contains(key: String): Boolean = key in cache
-
-    internal operator fun get(key: String): Data? = cache[key]
-
     internal operator fun set(key: String, data: Data) {
         cache[key] = data
     }
