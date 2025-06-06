@@ -101,6 +101,9 @@ class JDABuilderConfiguration internal constructor() {
     }
 
     internal infix fun isSameAs(other: JDABuilderConfiguration): Boolean {
+        if (hasUnsupportedValues) return false
+        if (other.hasUnsupportedValues) return false
+
         return builderValues == other.builderValues
     }
 
