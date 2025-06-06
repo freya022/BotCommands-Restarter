@@ -47,6 +47,13 @@ internal class JDABuilderSession private constructor(
             return shutdownFunction.run()
         }
 
+        // Don't save if this configuration has unsupported values
+        if (configuration.hasUnsupportedValues) {
+            scheduleShutdownSignal.runFully()
+            shutdownFunction.run()
+            return logger.debug { "Discarding JDA instance as the configuration had unsupported values (key '$key')" }
+        }
+
         val eventManager = instance.eventManager as? BufferingEventManager
         eventManager?.detach() // If the event manager isn't what we expect, it will be logged when attempting to reuse
 
