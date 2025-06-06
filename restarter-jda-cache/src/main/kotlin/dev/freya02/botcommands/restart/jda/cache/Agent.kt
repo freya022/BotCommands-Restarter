@@ -1,5 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache
 
+import dev.freya02.botcommands.restart.jda.cache.transformer.BContextImplTransformer
 import dev.freya02.botcommands.restart.jda.cache.transformer.JDABuilderTransformer
 import dev.freya02.botcommands.restart.jda.cache.transformer.JDAImplTransformer
 import dev.freya02.botcommands.restart.jda.cache.transformer.JDAServiceTransformer
@@ -12,6 +13,7 @@ object Agent {
         println("Agent args: $agentArgs")
         inst.addTransformer(JDABuilderTransformer)
         inst.addTransformer(JDAServiceTransformer)
+        inst.addTransformer(BContextImplTransformer)
         inst.addTransformer(JDAImplTransformer)
     }
 }

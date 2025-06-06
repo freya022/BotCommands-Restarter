@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger { }
 //  An hybrid way would require rewriting that proxy,
 //  so our module can hook into JDA and set the gateway URL to the proxy's
 internal class JDABuilderSession private constructor(
-    private val key: String,
+    @get:DynamicCall val key: String,
 ) {
 
     @get:DynamicCall
@@ -32,18 +32,36 @@ internal class JDABuilderSession private constructor(
     var wasBuilt: Boolean = false
         private set
 
+    private lateinit var scheduleShutdownSignal: ScheduleShutdownSignalWrapper
+
     // May also be shutdownNow
     @DynamicCall
     fun onShutdown(instance: JDA, shutdownFunction: Runnable) {
+        if (::scheduleShutdownSignal.isInitialized.not()) {
+            logger.error { "Expected BContextImpl#scheduleShutdownSignal to be called before shutdown, doing a full shut down" }
+            return shutdownFunction.run()
+        }
+
         if (isJvmShuttingDown()) {
-            shutdownFunction.run()
-            return
+            scheduleShutdownSignal.runFully()
+            return shutdownFunction.run()
         }
 
         val eventManager = instance.eventManager as? BufferingEventManager
         eventManager?.detach() // If the event manager isn't what we expect, it will be logged when attempting to reuse
 
-        JDACache[key] = JDACache.Data(configuration, instance, shutdownFunction)
+        JDACache[key] = JDACache.Data(configuration, instance, shutdownFunction, scheduleShutdownSignal)
+    }
+
+    /**
+     * Stores the actual code of BContextImpl#scheduleShutdownSignal and the callback it was passed
+     *
+     * [scheduleShutdownSignalFunction] will be called with [afterShutdownSignal] if JDA does get shut down,
+     * but if JDA is reused, only [afterShutdownSignal] is used.
+     */
+    @DynamicCall
+    fun onScheduleShutdownSignal(scheduleShutdownSignalFunction: Runnable, afterShutdownSignal: () -> Unit) {
+        this.scheduleShutdownSignal = ScheduleShutdownSignalWrapper(scheduleShutdownSignalFunction, afterShutdownSignal)
     }
 
     @DynamicCall
@@ -54,10 +72,12 @@ internal class JDABuilderSession private constructor(
     }
 
     private fun buildOrReuse(buildFunction: Supplier<JDA>): JDA {
+        val cachedData = JDACache.remove(key)
+
         fun createNewInstance(): JDA {
             val jda = buildFunction.get()
-            val oldInstanceData = JDACache.remove(key)
-            oldInstanceData?.doShutdown?.run()
+            cachedData?.scheduleShutdownSignal?.runFully()
+            cachedData?.doShutdown?.run()
             return jda
         }
 
@@ -66,7 +86,6 @@ internal class JDABuilderSession private constructor(
             return createNewInstance()
         }
 
-        val cachedData = JDACache[key]
         if (cachedData == null) {
             logger.debug { "Creating a new JDA instance (key '$key')" }
             return createNewInstance()
@@ -78,9 +97,10 @@ internal class JDABuilderSession private constructor(
             val eventManager = jda.eventManager as? BufferingEventManager
                 ?: run {
                     logger.warn { "Expected a BufferingEventManager but got a ${jda.eventManager.javaClass.name}, creating a new instance" }
-                    cachedData.doShutdown.run()
                     return createNewInstance()
                 }
+
+            cachedData.scheduleShutdownSignal.runAfterShutdownSignal()
 
             eventManager.setDelegate(configuration.eventManager)
             eventManager.handle(StatusChangeEvent(jda, JDA.Status.LOADING_SUBSYSTEMS, JDA.Status.CONNECTED))
@@ -91,6 +111,16 @@ internal class JDABuilderSession private constructor(
             logger.debug { "Creating a new JDA instance as its configuration changed (key '$key')" }
             return createNewInstance()
         }
+    }
+
+    internal class ScheduleShutdownSignalWrapper internal constructor(
+        private val scheduleShutdownSignalFunction: Runnable,
+        private val afterShutdownSignal: () -> Unit
+    ) {
+
+        internal fun runFully(): Unit = scheduleShutdownSignalFunction.run()
+
+        internal fun runAfterShutdownSignal(): Unit = afterShutdownSignal()
     }
 
     companion object {

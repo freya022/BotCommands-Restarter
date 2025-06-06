@@ -20,5 +20,6 @@ internal object JDACache {
         val configuration: JDABuilderConfiguration,
         val jda: JDA,
         val doShutdown: Runnable,
+        val scheduleShutdownSignal: JDABuilderSession.ScheduleShutdownSignalWrapper,
     )
 }
