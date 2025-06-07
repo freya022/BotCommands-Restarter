@@ -4,10 +4,10 @@ import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
-import java.lang.constant.*
+import java.lang.constant.ClassDesc
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
-import java.lang.invoke.*
+import java.lang.constant.MethodTypeDesc
 import java.lang.reflect.AccessFlag
 
 private val logger = KotlinLogging.logger { }
@@ -69,38 +69,14 @@ private class ScheduleShutdownSignalTransform(private val classModel: ClassModel
                 // Runnable doScheduleShutdownSignal = () -> this.doScheduleShutdownSignal(afterShutdownSignal)
                 codeBuilder.aload(thisSlot)
                 codeBuilder.aload(afterShutdownSignalSlot)
-                codeBuilder.invokedynamic(DynamicCallSiteDesc.of(
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.STATIC,
-                        classDesc<LambdaMetafactory>(),
-                        "metafactory",
-                        MethodTypeDesc.of(classDesc<CallSite>(), classDesc<MethodHandles.Lookup>(), CD_String, classDesc<MethodType>(), classDesc<MethodType>(), classDesc<MethodHandle>(), classDesc<MethodType>())
-                    ),
-                    // The following parameters are from [[LambdaMetafactory#metafactory]]
-                    // This is the 2nd argument of LambdaMetafactory#metafactory, "interfaceMethodName",
-                    // the method name in Runnable is "run"
-                    "run",
-                    // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
-                    // the return type is the implemented interface,
-                    // while the parameters are the captured variables
-                    MethodTypeDesc.of(classDesc<Runnable>(), CD_BContextImpl, CD_Function0),
-                    // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
-                    // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
-                    // which is the signature of the implemented method, in this case, void Runnable.run()
-                    MethodTypeDesc.of(CD_void),
-                    // This is the 5th argument of LambdaMetafactory#metafactory, "implementation",
-                    // this is the method to be called when invoking the lambda,
-                    // with the captured variables and parameters
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.VIRTUAL,
-                        CD_BContextImpl,
-                        LAMBDA_NAME,
-                        MethodTypeDesc.of(CD_void, CD_Function0)
-                    ),
-                    // This is the 6th argument of LambdaMetafactory#metafactory, "dynamicMethodType",
-                    // this is "the signature and return type to be enforced dynamically at invocation type"
-                    // This is usually the same as "interfaceMethodType"
-                    MethodTypeDesc.of(CD_void),
+                codeBuilder.invokedynamic(createLambda(
+                    interfaceMethod = Runnable::run,
+                    targetType = CD_BContextImpl,
+                    targetMethod = "doScheduleShutdownSignal",
+                    targetMethodReturnType = CD_void,
+                    targetMethodArguments = listOf(),
+                    capturedTypes = listOf(CD_Function0),
+                    isStatic = false
                 ))
                 codeBuilder.astore(doScheduleShutdownSignalSlot)
 

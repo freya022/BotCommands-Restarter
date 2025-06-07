@@ -5,10 +5,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
 import java.lang.classfile.instruction.InvokeInstruction
-import java.lang.constant.*
+import java.lang.constant.ClassDesc
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
-import java.lang.invoke.*
+import java.lang.constant.MethodTypeDesc
 
 private val logger = KotlinLogging.logger { }
 
@@ -114,38 +114,14 @@ private class ShutdownTransform : ClassTransform {
 
                 // Runnable doShutdown = this::doShutdown
                 codeBuilder.aload(thisSlot)
-                codeBuilder.invokedynamic(DynamicCallSiteDesc.of(
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.STATIC,
-                        classDesc<LambdaMetafactory>(),
-                        "metafactory",
-                        MethodTypeDesc.of(classDesc<CallSite>(), classDesc<MethodHandles.Lookup>(), CD_String, classDesc<MethodType>(), classDesc<MethodType>(), classDesc<MethodHandle>(), classDesc<MethodType>())
-                    ),
-                    // The following parameters are from [[LambdaMetafactory#metafactory]]
-                    // This is the 2nd argument of LambdaMetafactory#metafactory, "interfaceMethodName",
-                    // the method name in Supplier is "get"
-                    "run",
-                    // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
-                    // the return type is the implemented interface,
-                    // while the parameters are the captured variables (incl. receiver)
-                    MethodTypeDesc.of(classDesc<Runnable>(), CD_JDAImpl),
-                    // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
-                    // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
-                    // which is the signature of the implemented method, in this case, void run()
-                    MethodTypeDesc.of(CD_void),
-                    // This is the 5th argument of LambdaMetafactory#metafactory, "implementation",
-                    // this is the method to be called when invoking the lambda,
-                    // with the captured variables and parameters
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.VIRTUAL,
-                        CD_JDAImpl,
-                        newShutdownMethodName,
-                        MethodTypeDesc.of(CD_void)
-                    ),
-                    // This is the 6th argument of LambdaMetafactory#metafactory, "dynamicMethodType",
-                    // this is "the signature and return type to be enforced dynamically at invocation type"
-                    // This is usually the same as "interfaceMethodType"
-                    MethodTypeDesc.of(CD_void),
+                codeBuilder.invokedynamic(createLambda(
+                    interfaceMethod = Runnable::run,
+                    targetType = CD_JDAImpl,
+                    targetMethod = newShutdownMethodName,
+                    targetMethodReturnType = CD_void,
+                    targetMethodArguments = listOf(),
+                    capturedTypes = listOf(),
+                    isStatic = false
                 ))
                 codeBuilder.astore(doShutdownSlot)
 
@@ -215,38 +191,14 @@ private class ShutdownNowTransform : ClassTransform {
 
                 // Runnable doShutdownNow = this::doShutdownNow
                 codeBuilder.aload(thisSlot)
-                codeBuilder.invokedynamic(DynamicCallSiteDesc.of(
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.STATIC,
-                        classDesc<LambdaMetafactory>(),
-                        "metafactory",
-                        MethodTypeDesc.of(classDesc<CallSite>(), classDesc<MethodHandles.Lookup>(), CD_String, classDesc<MethodType>(), classDesc<MethodType>(), classDesc<MethodHandle>(), classDesc<MethodType>())
-                    ),
-                    // The following parameters are from [[LambdaMetafactory#metafactory]]
-                    // This is the 2nd argument of LambdaMetafactory#metafactory, "interfaceMethodName",
-                    // the method name in Supplier is "get"
-                    "run",
-                    // This is the 3rd argument of LambdaMetafactory#metafactory, "factoryType",
-                    // the return type is the implemented interface,
-                    // while the parameters are the captured variables (incl. receiver)
-                    MethodTypeDesc.of(classDesc<Runnable>(), CD_JDAImpl),
-                    // Bootstrap arguments (see `javap -c -v <class file>` from a working .java sample)
-                    // This is the 4th argument of LambdaMetafactory#metafactory, "interfaceMethodType",
-                    // which is the signature of the implemented method, in this case, void run()
-                    MethodTypeDesc.of(CD_void),
-                    // This is the 5th argument of LambdaMetafactory#metafactory, "implementation",
-                    // this is the method to be called when invoking the lambda,
-                    // with the captured variables and parameters
-                    MethodHandleDesc.ofMethod(
-                        DirectMethodHandleDesc.Kind.VIRTUAL,
-                        CD_JDAImpl,
-                        newShutdownMethodName,
-                        MethodTypeDesc.of(CD_void)
-                    ),
-                    // This is the 6th argument of LambdaMetafactory#metafactory, "dynamicMethodType",
-                    // this is "the signature and return type to be enforced dynamically at invocation type"
-                    // This is usually the same as "interfaceMethodType"
-                    MethodTypeDesc.of(CD_void),
+                codeBuilder.invokedynamic(createLambda(
+                    interfaceMethod = Runnable::run,
+                    targetType = CD_JDAImpl,
+                    targetMethod = newShutdownMethodName,
+                    targetMethodReturnType = CD_void,
+                    targetMethodArguments = listOf(),
+                    capturedTypes = listOf(),
+                    isStatic = false
                 ))
                 codeBuilder.astore(doShutdownNowSlot)
 
