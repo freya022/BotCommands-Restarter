@@ -26,6 +26,7 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_24
+        freeCompilerArgs.add("-Xcontext-parameters")
     }
 }
 

@@ -4,51 +4,52 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
 import java.lang.classfile.instruction.InvokeInstruction
-import java.lang.constant.ClassDesc
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
 import java.lang.constant.MethodTypeDesc
 
 private val logger = KotlinLogging.logger { }
 
-private const val cacheKeyFieldName = "cacheKey"
-
 internal object JDAImplTransformer : AbstractClassFileTransformer("net/dv8tion/jda/internal/JDAImpl") {
 
     override fun transform(classData: ByteArray): ByteArray {
         val classFile = ClassFile.of()
         val classModel = classFile.parse(classData)
-        return classFile.build(classModel.thisClass().asSymbol()) { classBuilder ->
-            classBuilder.withField(cacheKeyFieldName, CD_String, ACC_PRIVATE or ACC_FINAL)
-
-            classBuilder.withMethod("getBuilderSession", MethodTypeDesc.of(CD_JDABuilderSession), ACC_PUBLIC) { methodBuilder ->
-                methodBuilder.withCode { codeBuilder ->
-                    codeBuilder.aload(codeBuilder.receiverSlot())
-                    codeBuilder.getfield(CD_JDAImpl, cacheKeyFieldName, CD_String)
-                    codeBuilder.invokestatic(CD_JDABuilderSession, "getSession", MethodTypeDesc.of(CD_JDABuilderSession, CD_String))
-                    codeBuilder.areturn()
-                }
-            }
-
-            val transform = CaptureSessionKeyTransform()
-                .andThen(ShutdownTransform())
-                .andThen(ShutdownNowTransform())
+        return classFile.transformClass(
+            classModel,
+            CaptureSessionKeyTransform()
+                .andThen(DeferShutdownTransform(classModel))
+                .andThen(DeferShutdownNowTransform(classModel))
                 .andThen(AwaitShutdownTransform())
-            classBuilder.transform(classModel, transform)
-        }
+        )
     }
 }
 
-private class CaptureSessionKeyTransform : ClassTransform {
+private class CaptureSessionKeyTransform : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        logger.trace { "Adding JDAImpl#${CACHE_KEY_NAME}" }
+        classBuilder.withField(CACHE_KEY_NAME, CD_String, ACC_PRIVATE or ACC_FINAL)
+
+        logger.trace { "Adding JDAImpl#getBuilderSession()" }
+        classBuilder.withMethod("getBuilderSession", MethodTypeDesc.of(CD_JDABuilderSession), ACC_PUBLIC) { methodBuilder ->
+            methodBuilder.withCode { codeBuilder ->
+                codeBuilder.aload(codeBuilder.receiverSlot())
+                codeBuilder.getfield(CD_JDAImpl, CACHE_KEY_NAME, CD_String)
+                codeBuilder.invokestatic(CD_JDABuilderSession, "getSession", MethodTypeDesc.of(CD_JDABuilderSession, CD_String))
+                codeBuilder.areturn()
+            }
+        }
+    }
+
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
+        // No need to check the signature, we can assign the field in all constructors
         if (!methodModel.methodName().equalsString("<init>")) return classBuilder.retain(classElement)
 
-        // No need to check the signature, we can assign the field in all constructors
-
-        logger.trace { "Transforming (one of) JDAImpl's constructor" }
-
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to store the session key" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
 
@@ -59,44 +60,35 @@ private class CaptureSessionKeyTransform : ClassTransform {
                 codeBuilder.aload(thisSlot)
                 codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
                 codeBuilder.invokevirtual(CD_JDABuilderSession, "getKey", MethodTypeDesc.of(CD_String))
-                codeBuilder.putfield(CD_JDAImpl, cacheKeyFieldName, CD_String)
+                codeBuilder.putfield(CD_JDAImpl, CACHE_KEY_NAME, CD_String)
 
                 // Add existing instructions
                 codeModel.forEach { codeBuilder.with(it) }
             }
         }
     }
+
+    private companion object {
+        const val CACHE_KEY_NAME = "cacheKey"
+    }
 }
 
-private class ShutdownTransform : ClassTransform {
+private class DeferShutdownTransform(private val classModel: ClassModel) : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        val targetMethod = classModel.findMethod(TARGET_NAME, TARGET_SIGNATURE)
+
+        logger.trace { "Moving ${targetMethod.toFullyQualifiedString()} to '$NEW_NAME'" }
+        targetMethod.transferCodeTo(NEW_NAME)
+    }
+
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
-        if (!methodModel.methodName().equalsString("shutdown")) return classBuilder.retain(classElement)
+        if (!methodModel.matches(TARGET_NAME, TARGET_SIGNATURE)) return classBuilder.retain(classElement)
 
-        val methodType = methodModel.methodTypeSymbol()
-        if (methodType.parameterList() != emptyList<ClassDesc>()) {
-            // TODO not sure about the exception model yet,
-            //  maybe we should just disable the JDA cache instead of being completely incompatible
-            throw IllegalArgumentException("Incompatible JDAImpl shutdown method: $methodType")
-        }
-
-        logger.trace { "Transforming JDABuilder's shutdown() method" }
-
-        val newShutdownMethodName = "doShutdown"
-        classBuilder.withMethod(
-            newShutdownMethodName,
-            MethodTypeDesc.of(CD_void),
-            ACC_PRIVATE or ACC_SYNTHETIC or ACC_FINAL
-        ) { methodBuilder ->
-            val codeModel = methodModel.code().get()
-
-            methodBuilder.withCode { codeBuilder ->
-                // Move the shutdown() code to doShutdown()
-                codeModel.forEach { codeBuilder.with(it) }
-            }
-        }
-
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to defer execution" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
 
@@ -111,7 +103,7 @@ private class ShutdownTransform : ClassTransform {
                 codeBuilder.invokedynamic(createLambda(
                     interfaceMethod = Runnable::run,
                     targetType = CD_JDAImpl,
-                    targetMethod = newShutdownMethodName,
+                    targetMethod = NEW_NAME,
                     targetMethodReturnType = CD_void,
                     targetMethodArguments = listOf(),
                     capturedTypes = listOf(),
@@ -134,30 +126,28 @@ private class ShutdownTransform : ClassTransform {
             }
         }
     }
+
+    private companion object {
+        const val TARGET_NAME = "shutdown"
+        const val TARGET_SIGNATURE = "()V"
+
+        const val NEW_NAME = "doShutdown"
+    }
 }
 
-private class ShutdownNowTransform : ClassTransform {
+private class DeferShutdownNowTransform(private val classModel: ClassModel) : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
-        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
-        if (!methodModel.methodName().equalsString("shutdownNow")) return classBuilder.retain(classElement)
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        val targetMethod = classModel.findMethod(TARGET_NAME, TARGET_SIGNATURE)
 
-        val methodType = methodModel.methodTypeSymbol()
-        if (methodType.parameterList() != emptyList<ClassDesc>()) {
-            // TODO not sure about the exception model yet,
-            //  maybe we should just disable the JDA cache instead of being completely incompatible
-            throw IllegalArgumentException("Incompatible JDAImpl shutdownNow method: $methodType")
-        }
-
-        logger.trace { "Transforming JDABuilder's shutdownNow() method" }
-
-        val newShutdownMethodName = "doShutdownNow"
+        logger.trace { "Moving ${targetMethod.toFullyQualifiedString()} to $NEW_NAME, replacing shutdown() with doShutdown()" }
         classBuilder.withMethod(
-            newShutdownMethodName,
+            NEW_NAME,
             MethodTypeDesc.of(CD_void),
             ACC_PRIVATE or ACC_SYNTHETIC or ACC_FINAL
         ) { methodBuilder ->
-            val codeModel = methodModel.code().get()
+            val codeModel = targetMethod.code().get()
 
             methodBuilder.withCode { codeBuilder ->
                 // Move the shutdownNow() code to doShutdownNow()
@@ -173,7 +163,14 @@ private class ShutdownNowTransform : ClassTransform {
                 }
             }
         }
+    }
 
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
+        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
+        if (!methodModel.matches(TARGET_NAME, TARGET_SIGNATURE)) return classBuilder.retain(classElement)
+
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to defer execution" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
 
@@ -188,7 +185,7 @@ private class ShutdownNowTransform : ClassTransform {
                 codeBuilder.invokedynamic(createLambda(
                     interfaceMethod = Runnable::run,
                     targetType = CD_JDAImpl,
-                    targetMethod = newShutdownMethodName,
+                    targetMethod = NEW_NAME,
                     targetMethodReturnType = CD_void,
                     targetMethodArguments = listOf(),
                     capturedTypes = listOf(),
@@ -211,16 +208,23 @@ private class ShutdownNowTransform : ClassTransform {
             }
         }
     }
+
+    private companion object {
+        const val TARGET_NAME = "shutdownNow"
+        const val TARGET_SIGNATURE = "()V"
+
+        const val NEW_NAME = "doShutdownNow"
+    }
 }
 
-private class AwaitShutdownTransform : ClassTransform {
+private class AwaitShutdownTransform : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
         if (!methodModel.methodName().equalsString("awaitShutdown")) return classBuilder.retain(classElement)
 
-        logger.trace { "Transforming (one of) JDA's awaitShutdown method" }
-
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to immediately return" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
 

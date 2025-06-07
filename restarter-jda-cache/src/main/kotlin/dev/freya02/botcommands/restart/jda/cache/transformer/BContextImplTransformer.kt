@@ -2,7 +2,6 @@ package dev.freya02.botcommands.restart.jda.cache.transformer
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
-import java.lang.classfile.ClassFile.*
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
 import java.lang.constant.MethodTypeDesc
@@ -16,40 +15,32 @@ internal object BContextImplTransformer : AbstractClassFileTransformer("io/githu
         val classFile = ClassFile.of()
         val classModel = classFile.parse(classData)
 
-        return classFile.transformClass(classModel,
-            ScheduleShutdownSignalTransform(classModel)
+        return classFile.transformClass(
+            classModel,
+            DeferScheduleShutdownSignalTransform(classModel)
         )
     }
 }
 
-private class ScheduleShutdownSignalTransform(private val classModel: ClassModel) : ClassTransform {
+private class DeferScheduleShutdownSignalTransform(private val classModel: ClassModel) : ContextualClassTransform {
 
-    override fun atStart(classBuilder: ClassBuilder) {
-        val targetMethodModel = classModel.methods().firstOrNull(::isTargetMethod)
-            ?: error("Could not find BContextImpl#${TARGET_METHOD_NAME}${TARGET_METHOD_SIGNATURE}")
-
-        logger.trace { "Transferring BContextImpl#${TARGET_METHOD_NAME}${TARGET_METHOD_SIGNATURE} into $LAMBDA_NAME" }
-
-        classBuilder.withMethodBody(
-            LAMBDA_NAME,
-            MethodTypeDesc.ofDescriptor(TARGET_METHOD_SIGNATURE),
-            ACC_PRIVATE or ACC_SYNTHETIC or ACC_FINAL
-        ) { codeBuilder ->
-            val codeModel = targetMethodModel.code().get()
-            codeModel.forEach { codeBuilder.with(it) }
-        }
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        val targetMethod = classModel.findMethod(TARGET_NAME, TARGET_SIGNATURE)
+        logger.trace { "Moving ${targetMethod.toFullyQualifiedString()} to '$NEW_NAME'" }
+        targetMethod.transferCodeTo(NEW_NAME)
     }
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
-        if (!isTargetMethod(methodModel)) return classBuilder.retain(classElement)
+        if (!methodModel.matches(TARGET_NAME, TARGET_SIGNATURE)) return classBuilder.retain(classElement)
 
-        logger.trace { "Transforming BContextImpl#${TARGET_METHOD_NAME}${TARGET_METHOD_SIGNATURE}" }
-
+        logger.trace { "Transforming BContextImpl#${TARGET_NAME}${TARGET_SIGNATURE} to defer shutdown signal scheduling" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
 
-            methodBuilder.withFlags(*(methodModel.flags().flags() - AccessFlag.PRIVATE + AccessFlag.PUBLIC).toTypedArray())
+            methodBuilder.withFlags(methodModel.flags().flagsMask().withVisibility(AccessFlag.PUBLIC))
 
             methodBuilder.withCode { codeBuilder ->
                 val thisSlot = codeBuilder.receiverSlot()
@@ -95,16 +86,10 @@ private class ScheduleShutdownSignalTransform(private val classModel: ClassModel
         }
     }
 
-    private fun isTargetMethod(methodModel: MethodModel): Boolean {
-        if (!methodModel.methodName().equalsString(TARGET_METHOD_NAME)) return false
-        if (!methodModel.methodType().equalsString(TARGET_METHOD_SIGNATURE)) return false
-        return true
-    }
-
     private companion object {
-        const val TARGET_METHOD_NAME = "scheduleShutdownSignal"
-        const val TARGET_METHOD_SIGNATURE = "(Lkotlin/jvm/functions/Function0;)V"
+        const val TARGET_NAME = "scheduleShutdownSignal"
+        const val TARGET_SIGNATURE = "(Lkotlin/jvm/functions/Function0;)V"
 
-        const val LAMBDA_NAME = "doScheduleShutdownSignal"
+        const val NEW_NAME = "doScheduleShutdownSignal"
     }
 }

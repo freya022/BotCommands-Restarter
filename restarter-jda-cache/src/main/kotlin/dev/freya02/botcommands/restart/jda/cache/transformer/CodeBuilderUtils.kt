@@ -2,6 +2,7 @@ package dev.freya02.botcommands.restart.jda.cache.transformer
 
 import java.lang.classfile.ClassFileBuilder
 import java.lang.classfile.ClassFileElement
+import java.lang.classfile.CodeBuilder
 import java.lang.constant.*
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.invoke.*
@@ -12,6 +13,10 @@ internal inline fun <reified T : Any> classDesc(): ClassDesc = ClassDesc.of(T::c
 
 internal fun <E : ClassFileElement> ClassFileBuilder<E, *>.retain(element: E) {
     with(element)
+}
+
+internal fun CodeBuilder.ldc(string: String) {
+    ldc(string as java.lang.String)
 }
 
 internal val lambdaMetafactoryDesc = MethodHandleDesc.ofMethod(

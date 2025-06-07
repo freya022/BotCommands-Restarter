@@ -16,30 +16,30 @@ internal object JDABuilderTransformer : AbstractClassFileTransformer("net/dv8tio
 
     override fun transform(classData: ByteArray): ByteArray {
         val classFile = ClassFile.of()
+        val classModel = classFile.parse(classData)
+        
         return classFile.transformClass(
-            classFile.parse(classData),
-            PublicInstanceMethodTransform()
-                .andThen(JDABuilderConstructorTransform())
-                .andThen(BuildTransform())
+            classModel,
+            CaptureSetterParametersTransform()
+                .andThen(CaptureConstructorParametersTransform(classModel))
+                .andThen(DeferBuildAndSetBufferingEventManagerTransform(classModel))
         )
     }
 }
 
-private class JDABuilderConstructorTransform : ClassTransform {
+private class CaptureConstructorParametersTransform(private val classModel: ClassModel) : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        classModel.findMethod(TARGET_NAME, TARGET_SIGNATURE)
+    }
+
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
-        if (!methodModel.methodName().equalsString("<init>")) return classBuilder.retain(classElement)
+        if (!methodModel.matches(TARGET_NAME, TARGET_SIGNATURE)) return classBuilder.retain(classElement)
 
-        val methodType = methodModel.methodTypeSymbol()
-        if (methodType.parameterList() != listOf(CD_String, CD_int)) {
-            // TODO not sure about the exception model yet,
-            //  maybe we should just disable the JDA cache instead of being completely incompatible
-            throw IllegalArgumentException("Incompatible JDABuilder constructor: $methodType")
-        }
-
-        logger.trace { "Transforming JDABuilder's constructor" }
-
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to capture parameters" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
 
@@ -64,30 +64,26 @@ private class JDABuilderConstructorTransform : ClassTransform {
             }
         }
     }
+
+    private companion object {
+        const val TARGET_NAME = "<init>"
+        const val TARGET_SIGNATURE = "(Ljava/lang/String;I)V"
+    }
 }
 
-private class BuildTransform : ClassTransform {
+private class DeferBuildAndSetBufferingEventManagerTransform(private val classModel: ClassModel) : ContextualClassTransform {
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
-        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
-        if (!methodModel.methodName().equalsString("build")) return classBuilder.retain(classElement)
+    context(classBuilder: ClassBuilder)
+    override fun atStartContextual() {
+        val targetMethod = classModel.findMethod(TARGET_NAME, TARGET_SIGNATURE)
 
-        val methodType = methodModel.methodTypeSymbol()
-        if (methodType.parameterList() != emptyList<ClassDesc>()) {
-            // TODO not sure about the exception model yet,
-            //  maybe we should just disable the JDA cache instead of being completely incompatible
-            throw IllegalArgumentException("Incompatible JDABuilder build method: $methodType")
-        }
-
-        logger.trace { "Transforming JDABuilder's build() method" }
-
-        val newBuildMethodName = "doBuild"
+        logger.trace { "Adding JDABuilder#${NEW_NAME}() to set an event manager and build" }
         classBuilder.withMethod(
-            newBuildMethodName,
+            NEW_NAME,
             MethodTypeDesc.of(CD_JDA),
             ACC_PRIVATE or ACC_SYNTHETIC or ACC_FINAL
         ) { methodBuilder ->
-            val codeModel = methodModel.code().get()
+            val codeModel = targetMethod.code().get()
 
             methodBuilder.withCode { codeBuilder ->
                 val thisSlot = codeBuilder.receiverSlot()
@@ -125,12 +121,19 @@ private class BuildTransform : ClassTransform {
 
                 codeBuilder.new_(CD_IllegalStateException)
                 codeBuilder.dup()
-                codeBuilder.ldc("The event manager must be set using the one provided in JDAService#createJDA" as java.lang.String)
+                codeBuilder.ldc("The event manager must be set using the one provided in JDAService#createJDA")
                 codeBuilder.invokespecial(CD_IllegalStateException, "<init>", MethodTypeDesc.of(CD_void, CD_String))
                 codeBuilder.athrow()
             }
         }
+    }
 
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
+        val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
+        if (!methodModel.matches(TARGET_NAME, TARGET_SIGNATURE)) return classBuilder.retain(classElement)
+
+        logger.trace { "Transforming ${methodModel.toFullyQualifiedString()} to defer calls" }
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             if (methodElement !is CodeModel) return@transformMethod methodBuilder.retain(methodElement)
 
@@ -147,7 +150,7 @@ private class BuildTransform : ClassTransform {
                 codeBuilder.invokedynamic(createLambda(
                     interfaceMethod = Supplier<*>::get,
                     targetType = CD_JDABuilder,
-                    targetMethod = newBuildMethodName,
+                    targetMethod = NEW_NAME,
                     targetMethodReturnType = CD_JDA,
                     targetMethodArguments = listOf(),
                     capturedTypes = emptyList(),
@@ -171,23 +174,30 @@ private class BuildTransform : ClassTransform {
             }
         }
     }
+
+    private companion object {
+        const val TARGET_NAME = "build"
+        const val TARGET_SIGNATURE = "()Lnet/dv8tion/jda/api/JDA;"
+
+        const val NEW_NAME = "doBuild"
+    }
 }
 
-private class PublicInstanceMethodTransform : ClassTransform {
+private class CaptureSetterParametersTransform : ContextualClassTransform {
 
     private val builderSessionMethods: Set<MethodDesc> = ClassFile.of()
         .parse(JDABuilderConfiguration::class.java.getResourceAsStream("JDABuilderConfiguration.class")!!.readAllBytes())
         .methods()
         .mapTo(hashSetOf(), ::MethodDesc)
 
-    override fun accept(classBuilder: ClassBuilder, classElement: ClassElement) {
+    context(classBuilder: ClassBuilder)
+    override fun acceptContextual(classElement: ClassElement) {
         val methodModel = classElement as? MethodModel ?: return classBuilder.retain(classElement)
         if (!methodModel.flags().has(AccessFlag.PUBLIC)) return classBuilder.retain(classElement)
         if (methodModel.flags().has(AccessFlag.STATIC)) return classBuilder.retain(classElement)
         if (methodModel.methodName().stringValue() == "build") return classBuilder.retain(classElement)
 
-        logger.trace { "Transforming ${methodModel.methodName().stringValue()}" }
-
+        // Log is done later
         classBuilder.transformMethod(methodModel) { methodBuilder, methodElement ->
             val codeModel = methodElement as? CodeModel ?: return@transformMethod methodBuilder.retain(methodElement)
 
@@ -200,10 +210,10 @@ private class PublicInstanceMethodTransform : ClassTransform {
                 codeBuilder.invokevirtual(CD_JDABuilderSession, "getConfiguration", MethodTypeDesc.of(CD_JDABuilderConfiguration))
                 codeBuilder.astore(builderConfigurationSlot)
 
+                val methodName = methodModel.methodName().stringValue()
                 if (hasBuilderSessionMethod) {
-                    logger.trace { "Registering $methodModel as a cache-compatible method" }
+                    logger.trace { "Registering ${methodModel.toFullyQualifiedString()} as a cache-compatible method" }
 
-                    val methodName = methodModel.methodName().stringValue()
                     // Set return type to "void" because our method won't return JDABuilder, and it doesn't matter anyway
                     val methodType = methodModel.methodTypeSymbol().changeReturnType(CD_void)
 
@@ -216,13 +226,13 @@ private class PublicInstanceMethodTransform : ClassTransform {
                     }
                     codeBuilder.invokevirtual(CD_JDABuilderConfiguration, methodName, methodType)
                 } else {
-                    logger.trace { "Skipping $methodModel as it does not have an equivalent method handler" }
+                    logger.trace { "Skipping ${methodModel.toFullyQualifiedString()} as it does not have an equivalent method handler" }
 
-                    val signature = methodModel.methodName().stringValue() + "(${methodModel.methodTypeSymbol().parameterList().joinToString { it.displayName() }})"
+                    val signature = methodName + "(${methodModel.methodTypeSymbol().parameterList().joinToString { it.displayName() }})"
 
                     // configuration.markUnsupportedValue()
                     codeBuilder.aload(builderConfigurationSlot)
-                    codeBuilder.ldc(signature as java.lang.String)
+                    codeBuilder.ldc(signature)
                     codeBuilder.invokevirtual(CD_JDABuilderConfiguration, "markUnsupportedValue", MethodTypeDesc.of(CD_void, CD_String))
                 }
 
