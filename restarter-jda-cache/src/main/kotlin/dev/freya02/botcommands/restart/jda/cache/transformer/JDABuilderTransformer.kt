@@ -148,15 +148,17 @@ private class DeferBuildAndSetBufferingEventManagerTransform(private val classMo
                 // Supplier<JDA> doBuild = this::doBuild
                 codeBuilder.aload(thisSlot)
 
-                codeBuilder.invokedynamic(createLambda(
-                    interfaceMethod = Supplier<*>::get,
-                    targetType = CD_JDABuilder,
-                    targetMethod = NEW_NAME,
-                    targetMethodReturnType = CD_JDA,
-                    targetMethodArguments = listOf(),
-                    capturedTypes = emptyList(),
-                    isStatic = false
-                ))
+                codeBuilder.invokedynamic(
+                    createLambda(
+                        interfaceMethod = Supplier<*>::get,
+                        targetType = CD_JDABuilder,
+                        targetMethod = NEW_NAME,
+                        targetMethodReturnType = CD_JDA,
+                        targetMethodArguments = listOf(),
+                        capturedTypes = emptyList(),
+                        isStatic = false
+                    )
+                )
                 codeBuilder.astore(doBuildSlot)
 
                 // JDABuilderSession session = JDABuilderSession.currentSession();

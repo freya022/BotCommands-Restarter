@@ -77,15 +77,17 @@ private class WrapOnReadyEventWithJDABuilderSessionTransform(private val classMo
                 codeBuilder.aload(thisSlot)
                 codeBuilder.aload(readyEventSlot)
                 codeBuilder.aload(eventManagerSlot)
-                codeBuilder.invokedynamic(createLambda(
-                    interfaceMethod = Runnable::run,
-                    targetType = CD_JDAService,
-                    targetMethod = NEW_NAME,
-                    targetMethodReturnType = CD_void,
-                    targetMethodArguments = listOf(),
-                    capturedTypes = listOf(CD_BReadyEvent, CD_IEventManager),
-                    isStatic = false
-                ))
+                codeBuilder.invokedynamic(
+                    createLambda(
+                        interfaceMethod = Runnable::run,
+                        targetType = CD_JDAService,
+                        targetMethod = NEW_NAME,
+                        targetMethodReturnType = CD_void,
+                        targetMethodArguments = listOf(),
+                        capturedTypes = listOf(CD_BReadyEvent, CD_IEventManager),
+                        isStatic = false
+                    )
+                )
                 codeBuilder.astore(sessionRunnableSlot)
 
                 // JDABuilderSession.withBuilderSession(key, sessionRunnable)

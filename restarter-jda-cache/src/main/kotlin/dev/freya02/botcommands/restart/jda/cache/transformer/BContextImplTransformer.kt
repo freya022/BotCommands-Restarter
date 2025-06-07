@@ -54,15 +54,17 @@ private class DeferScheduleShutdownSignalTransform(private val classModel: Class
                 // Runnable doScheduleShutdownSignal = () -> this.doScheduleShutdownSignal(afterShutdownSignal)
                 codeBuilder.aload(thisSlot)
                 codeBuilder.aload(afterShutdownSignalSlot)
-                codeBuilder.invokedynamic(createLambda(
-                    interfaceMethod = Runnable::run,
-                    targetType = CD_BContextImpl,
-                    targetMethod = "doScheduleShutdownSignal",
-                    targetMethodReturnType = CD_void,
-                    targetMethodArguments = listOf(),
-                    capturedTypes = listOf(CD_Function0),
-                    isStatic = false
-                ))
+                codeBuilder.invokedynamic(
+                    createLambda(
+                        interfaceMethod = Runnable::run,
+                        targetType = CD_BContextImpl,
+                        targetMethod = NEW_NAME,
+                        targetMethodReturnType = CD_void,
+                        targetMethodArguments = listOf(),
+                        capturedTypes = listOf(CD_Function0),
+                        isStatic = false
+                    )
+                )
                 codeBuilder.astore(doScheduleShutdownSignalSlot)
 
                 // String sessionKey = JDABuilderSession.getCacheKey(this)

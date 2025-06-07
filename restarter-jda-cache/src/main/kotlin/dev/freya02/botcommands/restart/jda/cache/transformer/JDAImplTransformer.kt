@@ -101,15 +101,17 @@ private class DeferShutdownTransform(private val classModel: ClassModel) : Conte
 
                 // Runnable doShutdown = this::doShutdown
                 codeBuilder.aload(thisSlot)
-                codeBuilder.invokedynamic(createLambda(
-                    interfaceMethod = Runnable::run,
-                    targetType = CD_JDAImpl,
-                    targetMethod = NEW_NAME,
-                    targetMethodReturnType = CD_void,
-                    targetMethodArguments = listOf(),
-                    capturedTypes = listOf(),
-                    isStatic = false
-                ))
+                codeBuilder.invokedynamic(
+                    createLambda(
+                        interfaceMethod = Runnable::run,
+                        targetType = CD_JDAImpl,
+                        targetMethod = NEW_NAME,
+                        targetMethodReturnType = CD_void,
+                        targetMethodArguments = listOf(),
+                        capturedTypes = listOf(),
+                        isStatic = false
+                    )
+                )
                 codeBuilder.astore(doShutdownSlot)
 
                 // var builderSession = getBuilderSession()
@@ -183,15 +185,17 @@ private class DeferShutdownNowTransform(private val classModel: ClassModel) : Co
 
                 // Runnable doShutdownNow = this::doShutdownNow
                 codeBuilder.aload(thisSlot)
-                codeBuilder.invokedynamic(createLambda(
-                    interfaceMethod = Runnable::run,
-                    targetType = CD_JDAImpl,
-                    targetMethod = NEW_NAME,
-                    targetMethodReturnType = CD_void,
-                    targetMethodArguments = listOf(),
-                    capturedTypes = listOf(),
-                    isStatic = false
-                ))
+                codeBuilder.invokedynamic(
+                    createLambda(
+                        interfaceMethod = Runnable::run,
+                        targetType = CD_JDAImpl,
+                        targetMethod = NEW_NAME,
+                        targetMethodReturnType = CD_void,
+                        targetMethodArguments = listOf(),
+                        capturedTypes = listOf(),
+                        isStatic = false
+                    )
+                )
                 codeBuilder.astore(doShutdownNowSlot)
 
                 // var builderSession = getBuilderSession()
