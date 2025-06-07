@@ -13,7 +13,6 @@ dependencies {
     implementation(libs.kotlin.logging)
     implementation(libs.botcommands)
 
-    testImplementation(kotlin("test"))
     testImplementation(libs.mockk)
     testImplementation(libs.bytebuddy)
     testImplementation(libs.logback.classic)
