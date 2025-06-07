@@ -1,24 +1,16 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
-import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.ClassFile
 import java.lang.classfile.ClassFile.*
 import java.lang.classfile.CodeModel
 import java.lang.classfile.MethodModel
 import java.lang.classfile.TypeKind
-import java.lang.constant.ClassDesc
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
 import java.lang.constant.MethodTypeDesc
 
 private val logger = KotlinLogging.logger { }
-
-// Avoid importing BC and JDA classes
-private val CD_BContext = ClassDesc.of("io.github.freya022.botcommands.api.core.BContext")
-private val CD_JDAService = ClassDesc.of("io.github.freya022.botcommands.api.core.JDAService")
-private val CD_BReadyEvent  = ClassDesc.of("io.github.freya022.botcommands.api.core.events.BReadyEvent")
-private val CD_IEventManager = ClassDesc.of("net.dv8tion.jda.api.hooks.IEventManager")
 
 internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/freya022/botcommands/api/core/JDAService") {
 
@@ -70,7 +62,7 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
 
                     // var key = JDABuilderSession.getCacheKey(context)
                     codeBuilder.aload(contextSlot)
-                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getCacheKey", MethodTypeDesc.of(CD_String, CD_BContext))
+                    codeBuilder.invokestatic(CD_JDABuilderSession, "getCacheKey", MethodTypeDesc.of(CD_String, CD_BContext))
                     codeBuilder.astore(sessionKeySlot)
 
                     // THE KEY IS NULLABLE
@@ -96,10 +88,10 @@ internal object JDAServiceTransformer : AbstractClassFileTransformer("io/github/
                     ))
                     codeBuilder.astore(sessionRunnableSlot)
 
-                    // JDABuilderSession.withBuilderSession(key, this::[lambdaName])
+                    // JDABuilderSession.withBuilderSession(key, sessionRunnable)
                     codeBuilder.aload(sessionKeySlot)
                     codeBuilder.aload(sessionRunnableSlot)
-                    codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "withBuilderSession", MethodTypeDesc.of(CD_void, CD_String, classDesc<Runnable>()))
+                    codeBuilder.invokestatic(CD_JDABuilderSession, "withBuilderSession", MethodTypeDesc.of(CD_void, CD_String, CD_Runnable))
 
                     // Required
                     codeBuilder.return_()

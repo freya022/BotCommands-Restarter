@@ -1,21 +1,14 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
-import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
-import java.lang.constant.ClassDesc
 import java.lang.constant.ConstantDescs.CD_String
 import java.lang.constant.ConstantDescs.CD_void
 import java.lang.constant.MethodTypeDesc
 import java.lang.reflect.AccessFlag
 
 private val logger = KotlinLogging.logger { }
-
-// Avoid importing BC and JDA classes
-private val CD_BContext = ClassDesc.of("io.github.freya022.botcommands.api.core.BContext")
-private val CD_BContextImpl = ClassDesc.of("io.github.freya022.botcommands.internal.core.BContextImpl")
-private val CD_Function0 = ClassDesc.of("kotlin.jvm.functions.Function0")
 
 internal object BContextImplTransformer : AbstractClassFileTransformer("io/github/freya022/botcommands/internal/core/BContextImpl") {
 
@@ -82,19 +75,19 @@ private class ScheduleShutdownSignalTransform(private val classModel: ClassModel
 
                 // String sessionKey = JDABuilderSession.getCacheKey(this)
                 codeBuilder.aload(thisSlot)
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getCacheKey", MethodTypeDesc.of(CD_String, CD_BContext))
+                codeBuilder.invokestatic(CD_JDABuilderSession, "getCacheKey", MethodTypeDesc.of(CD_String, CD_BContext))
                 codeBuilder.astore(sessionKeySlot)
 
                 // JDABuilderSession builderSession = JDABuilderSession.getSession(sessionKey)
                 codeBuilder.aload(sessionKeySlot)
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "getSession", MethodTypeDesc.of(classDesc<JDABuilderSession>(), CD_String))
+                codeBuilder.invokestatic(CD_JDABuilderSession, "getSession", MethodTypeDesc.of(CD_JDABuilderSession, CD_String))
                 codeBuilder.astore(builderSessionSlot)
 
                 // builderSession.onScheduleShutdownSignal(doScheduleShutdownSignal, afterShutdownSignal)
                 codeBuilder.aload(builderSessionSlot)
                 codeBuilder.aload(doScheduleShutdownSignalSlot)
                 codeBuilder.aload(afterShutdownSignalSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onScheduleShutdownSignal", MethodTypeDesc.of(CD_void, classDesc<Runnable>(), CD_Function0))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "onScheduleShutdownSignal", MethodTypeDesc.of(CD_void, CD_Runnable, CD_Function0))
 
                 // Required
                 codeBuilder.return_()

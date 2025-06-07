@@ -1,6 +1,5 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
-import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
@@ -11,11 +10,6 @@ import java.lang.constant.ConstantDescs.CD_void
 import java.lang.constant.MethodTypeDesc
 
 private val logger = KotlinLogging.logger { }
-
-// Avoid importing BC and JDA classes
-private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
-private val CD_JDAImpl = ClassDesc.of("net.dv8tion.jda.internal.JDAImpl")
-private val CD_JDABuilderSession = classDesc<JDABuilderSession>()
 
 private const val cacheKeyFieldName = "cacheKey"
 
@@ -134,7 +128,7 @@ private class ShutdownTransform : ClassTransform {
                 codeBuilder.aload(builderSessionSlot)
                 codeBuilder.aload(thisSlot)
                 codeBuilder.aload(doShutdownSlot)
-                codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, classDesc<Runnable>()))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, CD_Runnable))
 
                 codeBuilder.return_()
             }
@@ -211,7 +205,7 @@ private class ShutdownNowTransform : ClassTransform {
                 codeBuilder.aload(builderSessionSlot)
                 codeBuilder.aload(thisSlot)
                 codeBuilder.aload(doShutdownNowSlot)
-                codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, classDesc<Runnable>()))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "onShutdown", MethodTypeDesc.of(CD_void, CD_JDA, CD_Runnable))
 
                 codeBuilder.return_()
             }

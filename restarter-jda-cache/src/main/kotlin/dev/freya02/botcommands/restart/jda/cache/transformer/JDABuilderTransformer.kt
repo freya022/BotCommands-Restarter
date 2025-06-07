@@ -1,8 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
-import dev.freya02.botcommands.restart.jda.cache.BufferingEventManager
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderConfiguration
-import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*
@@ -13,15 +11,6 @@ import java.lang.reflect.AccessFlag
 import java.util.function.Supplier
 
 private val logger = KotlinLogging.logger { }
-
-// Avoid importing BC and JDA classes
-private val CD_JDA = ClassDesc.of("net.dv8tion.jda.api.JDA")
-private val CD_JDABuilder = ClassDesc.of("net.dv8tion.jda.api.JDABuilder")
-private val CD_IEventManager = ClassDesc.of("net.dv8tion.jda.api.hooks.IEventManager")
-
-private val CD_BufferingEventManager = classDesc<BufferingEventManager>()
-
-private val CD_IllegalStateException = ClassDesc.of("java.lang.IllegalStateException")
 
 internal object JDABuilderTransformer : AbstractClassFileTransformer("net/dv8tion/jda/api/JDABuilder") {
 
@@ -60,15 +49,15 @@ private class JDABuilderConstructorTransform : ClassTransform {
                 val intentsSlot = codeBuilder.parameterSlot(1)
 
                 // JDABuilderConfiguration configuration = JDABuilderSession.currentSession().getConfiguration();
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "getConfiguration", MethodTypeDesc.of(classDesc<JDABuilderConfiguration>()))
+                codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "getConfiguration", MethodTypeDesc.of(CD_JDABuilderConfiguration))
                 codeBuilder.astore(builderConfigurationSlot)
 
                 // configuration.onInit(token, intents);
                 codeBuilder.aload(builderConfigurationSlot)
                 codeBuilder.aload(tokenSlot)
                 codeBuilder.iload(intentsSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "onInit", MethodTypeDesc.of(CD_void, CD_String, CD_int))
+                codeBuilder.invokevirtual(CD_JDABuilderConfiguration, "onInit", MethodTypeDesc.of(CD_void, CD_String, CD_int))
 
                 // Add existing instructions
                 codeModel.forEach { codeBuilder.with(it) }
@@ -167,13 +156,13 @@ private class BuildTransform : ClassTransform {
                 codeBuilder.astore(doBuildSlot)
 
                 // JDABuilderSession session = JDABuilderSession.currentSession();
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
+                codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
                 codeBuilder.astore(builderSessionSlot)
 
                 // var jda = session.onBuild(this::doBuild);
                 codeBuilder.aload(builderSessionSlot)
                 codeBuilder.aload(doBuildSlot)
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "onBuild", MethodTypeDesc.of(CD_JDA, classDesc<Supplier<*>>()))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "onBuild", MethodTypeDesc.of(CD_JDA, CD_Supplier))
                 // Again, prefer using a variable for clarity
                 codeBuilder.astore(jdaSlot)
 
@@ -207,8 +196,8 @@ private class PublicInstanceMethodTransform : ClassTransform {
                 val builderConfigurationSlot = codeBuilder.allocateLocal(TypeKind.REFERENCE)
 
                 // JDABuilderConfiguration configuration = JDABuilderSession.currentSession().getConfiguration();
-                codeBuilder.invokestatic(classDesc<JDABuilderSession>(), "currentSession", MethodTypeDesc.of(classDesc<JDABuilderSession>()))
-                codeBuilder.invokevirtual(classDesc<JDABuilderSession>(), "getConfiguration", MethodTypeDesc.of(classDesc<JDABuilderConfiguration>()))
+                codeBuilder.invokestatic(CD_JDABuilderSession, "currentSession", MethodTypeDesc.of(CD_JDABuilderSession))
+                codeBuilder.invokevirtual(CD_JDABuilderSession, "getConfiguration", MethodTypeDesc.of(CD_JDABuilderConfiguration))
                 codeBuilder.astore(builderConfigurationSlot)
 
                 if (hasBuilderSessionMethod) {
@@ -225,7 +214,7 @@ private class PublicInstanceMethodTransform : ClassTransform {
                         val slot = codeBuilder.parameterSlot(index)
                         codeBuilder.loadLocal(typeKind, slot)
                     }
-                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), methodName, methodType)
+                    codeBuilder.invokevirtual(CD_JDABuilderConfiguration, methodName, methodType)
                 } else {
                     logger.trace { "Skipping $methodModel as it does not have an equivalent method handler" }
 
@@ -234,7 +223,7 @@ private class PublicInstanceMethodTransform : ClassTransform {
                     // configuration.markUnsupportedValue()
                     codeBuilder.aload(builderConfigurationSlot)
                     codeBuilder.ldc(signature as java.lang.String)
-                    codeBuilder.invokevirtual(classDesc<JDABuilderConfiguration>(), "markUnsupportedValue", MethodTypeDesc.of(CD_void, CD_String))
+                    codeBuilder.invokevirtual(CD_JDABuilderConfiguration, "markUnsupportedValue", MethodTypeDesc.of(CD_void, CD_String))
                 }
 
                 // Add existing instructions
