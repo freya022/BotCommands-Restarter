@@ -3,6 +3,7 @@ package dev.freya02.botcommands.restart.jda.cache.transformer
 import dev.freya02.botcommands.restart.jda.cache.BufferingEventManager
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderConfiguration
 import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
+import dev.freya02.botcommands.restart.jda.cache.transformer.utils.classDesc
 import org.intellij.lang.annotations.Language
 import java.lang.constant.ClassDesc
 

@@ -1,4 +1,4 @@
-package dev.freya02.botcommands.restart.jda.cache.transformer
+package dev.freya02.botcommands.restart.jda.cache.transformer.utils
 
 import java.lang.classfile.ClassBuilder
 import java.lang.classfile.ClassFile.ACC_SYNTHETIC

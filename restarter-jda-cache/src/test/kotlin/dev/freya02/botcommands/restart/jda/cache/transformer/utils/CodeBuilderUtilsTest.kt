@@ -1,5 +1,6 @@
-package dev.freya02.botcommands.restart.jda.cache.transformer
+package dev.freya02.botcommands.restart.jda.cache.transformer.utils
 
+import dev.freya02.botcommands.restart.jda.cache.transformer.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -7,7 +8,7 @@ import java.lang.constant.*
 import java.util.function.Supplier
 import kotlin.test.assertEquals
 
-object CodeBuilderTest {
+object CodeBuilderUtilsTest {
 
     @MethodSource("Test createLambda")
     @ParameterizedTest

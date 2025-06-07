@@ -1,4 +1,4 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.utils
 
 internal fun isJvmShuttingDown() = try {
     Runtime.getRuntime().removeShutdownHook(NullShutdownHook)

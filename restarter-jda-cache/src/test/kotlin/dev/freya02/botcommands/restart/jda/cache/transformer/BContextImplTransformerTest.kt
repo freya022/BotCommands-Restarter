@@ -1,4 +1,4 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.Test

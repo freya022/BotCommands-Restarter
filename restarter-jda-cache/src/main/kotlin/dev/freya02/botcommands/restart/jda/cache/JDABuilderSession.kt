@@ -1,5 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache
 
+import dev.freya02.botcommands.restart.jda.cache.utils.isJvmShuttingDown
 import io.github.freya022.botcommands.api.core.BContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import net.dv8tion.jda.api.JDA

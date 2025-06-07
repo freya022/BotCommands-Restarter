@@ -1,5 +1,6 @@
 package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.transformer.utils.*
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.lang.classfile.*
 import java.lang.classfile.ClassFile.*

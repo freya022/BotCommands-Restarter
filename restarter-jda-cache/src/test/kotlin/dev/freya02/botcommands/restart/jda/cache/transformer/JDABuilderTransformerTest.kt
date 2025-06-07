@@ -1,5 +1,8 @@
-package dev.freya02.botcommands.restart.jda.cache
+package dev.freya02.botcommands.restart.jda.cache.transformer
 
+import dev.freya02.botcommands.restart.jda.cache.BufferingEventManager
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderConfiguration
+import dev.freya02.botcommands.restart.jda.cache.JDABuilderSession
 import io.mockk.*
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
