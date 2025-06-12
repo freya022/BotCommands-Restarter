@@ -1,5 +1,7 @@
 package dev.freya02.botcommands.internal.restart
 
+import java.lang.reflect.InvocationTargetException
+
 class ImmediateRestartException internal constructor() : RuntimeException("Dummy exception to stop the execution of the first main thread") {
 
     internal companion object {
@@ -13,7 +15,7 @@ class ImmediateRestartException internal constructor() : RuntimeException("Dummy
     private class ExpectedReloadExceptionHandler(private val delegate: Thread.UncaughtExceptionHandler?) : Thread.UncaughtExceptionHandler {
 
         override fun uncaughtException(t: Thread, e: Throwable) {
-            if (e is ImmediateRestartException) {
+            if (e is ImmediateRestartException || (e is InvocationTargetException && e.targetException is ImmediateRestartException)) {
                 return
             }
 
