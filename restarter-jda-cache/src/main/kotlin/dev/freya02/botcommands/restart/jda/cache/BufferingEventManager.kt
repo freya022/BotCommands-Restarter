@@ -46,12 +46,16 @@ internal class BufferingEventManager @DynamicCall constructor(
     }
 
     override fun handle(event: GenericEvent) {
-        lock.withLock {
+        val delegate = lock.withLock {
             val delegate = delegate
-            if (delegate != null) return delegate.handle(event)
-
-            eventBuffer += event
+            if (delegate == null) {
+                eventBuffer += event
+                return
+            }
+            delegate
         }
+
+        delegate.handle(event)
     }
 
     override fun getRegisteredListeners(): List<Any?> {
